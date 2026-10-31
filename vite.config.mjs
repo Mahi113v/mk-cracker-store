@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// /api and /uploads are forwarded to the Node backend (port 5000)
+// Dev only: /api and /uploads are forwarded to the Node backend (port 5000).
+// Production: "npm run build" writes to dist/, and Express (server/server.js) serves it.
 export default defineConfig({
   plugins: [react()],
+  build: {
+    outDir: 'dist',
+  },
   server: {
     port: 8000,
     strictPort: true,
