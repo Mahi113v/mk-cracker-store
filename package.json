@@ -1,0 +1,43 @@
+{
+  "name": "mk-crackers",
+  "version": "2.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c red,cyan \"nodemon server/server.js\" \"vite\"",
+    "build": "vite build",
+    "start": "npm run build && node server/server.js",
+    "server": "node server/server.js",
+    "migrate": "node scripts/db.js migrate",
+    "migrate:status": "node scripts/db.js status",
+    "seed": "node scripts/db.js seed",
+    "setup": "node scripts/db.js setup",
+    "db:fresh": "node scripts/db.js fresh --yes"
+  },
+  "nodemonConfig": { "watch": ["server", "database"], "ext": "js,json,sql" },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "mysql2": "^3.11.5",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "1.1.1",
+    "pdfkit": "^0.15.2",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "sweetalert2": "^11.14.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "nodemon": "^3.1.9",
+    "vite": "^5.4.11"
+  }
+}

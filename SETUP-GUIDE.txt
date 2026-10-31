@@ -1,0 +1,65 @@
+==============================================================================
+ MK CRACKERS  (multi-company)  -  React.js + Node.js (Express) + MySQL
+ ONE folder, ONE package.json, ONE "npm install"
+==============================================================================
+ Folder:  D:\Project\crackers-store\backend
+
+ 1. PRE-REQUIREMENTS
+    Node.js 18+ (node -v)      MySQL 8+ / XAMPP MySQL running (mysql --version)
+    MySQL user must be allowed to CREATE DATABASE (root is fine on your PC)
+
+ 2. SETUP  (first time)
+    cd D:\Project\crackers-store\backend
+    npm install
+    copy .env.example .env          (PowerShell: Copy-Item .env.example .env)
+      -> open .env and set  DB_PASSWORD  and  JWT_SECRET
+    npm run setup                   (= migrate + seed. Creates master DB, 2 demo
+                                       company databases, sample users, products, orders)
+    npm run dev                     (React + Node together)
+
+ 3. OPEN IN BROWSER   (company code is in the URL)
+    http://localhost:8000                       -> enter company code
+    http://localhost:8000/mk                    -> MK Crackers store        (design: Normal)
+    http://localhost:8000/sri                   -> Sri Murugan Crackers     (design: Current)
+    http://localhost:8000/mk/admin/login        -> company admin / staff login
+    http://localhost:8000/platform/login        -> PLATFORM ADMIN (you, product owner)
+
+ 4. SAMPLE LOGINS  (created by the seeder)
+    PLATFORM ADMIN   superadmin@mkcrackers.com   Super@123     /platform/login
+    --- company "mk"  (database mk_crackers) ---
+    Company admin    admin@mkcrackers.com        Admin@123     /mk/admin/login
+    Staff-Manager    manager@mkcrackers.com      Manager@123   /mk/admin/login
+    Staff-Stock      stock@mkcrackers.com        Stock@123     /mk/admin/login
+    Staff-Sales      sales@mkcrackers.com        Sales@123     /mk/admin/login
+    Customers        customer1@mkcrackers.com .. customer3@mkcrackers.com   Customer@123   /mk/login
+    --- company "sri" (database sri_crackers) ---
+    same pattern with @srimurugan.com  (admin@srimurugan.com / Admin@123 ...)
+
+ 5. MIGRATION & SEEDER COMMANDS
+    npm run migrate          create master DB + run pending migrations on master and on EVERY company database
+    npm run migrate:status   show which migrations ran ([x] = done)
+    npm run seed             create platform admin, 2 demo companies (each with its own DB), sample users/products/orders
+    npm run setup            migrate + seed (first time)
+    npm run db:fresh         DROP master + all company databases, then migrate + seed again (all data lost!)
+    Migration files:  database/migrations/master/*.sql   (companies, platform_users)
+                      database/migrations/tenant/*.sql   (tables made inside each company DB, {{CID}} = company id)
+    New table later?  add  database/migrations/tenant/003_xxx.sql  and run  npm run migrate
+                      -> it is applied to every company database automatically.
+
+ 6. CREATE A NEW COMPANY (platform admin)
+    /platform/login -> "+ New company" -> type company name, DATABASE NAME, choose design, features,
+    company admin email/password -> "Create company & database".
+    The database is created with all tables. Only that company uses that database.
+
+ 7. PRODUCTION (one port)
+    npm start        -> http://localhost:5000   (React is built and served by Express)
+    Set strong JWT_SECRET, change all sample passwords, use HTTPS, take daily backups (see
+    MK-Crackers-Project-Explanation.txt, section 14).
+
+ 8. COMMON PROBLEMS
+    "Access denied"            -> check DB_USER / DB_PASSWORD in .env
+    "ECONNREFUSED 3306"        -> start MySQL
+    "Unknown database mk_master" -> run  npm run migrate
+    "Port 8000 in use"         -> stop the other app (Vite uses strictPort)
+    Company page "not found"   -> run npm run seed, or create the company from /platform
+==============================================================================

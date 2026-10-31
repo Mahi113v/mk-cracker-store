@@ -1,0 +1,126 @@
+==============================================================================
+ MK CRACKERS - EVLO ROOBAA-KU SALE PANNALAAM?  (pricing + selling guide)
+==============================================================================
+NOTE: Idhu oru SUGGESTION. Final price neenga market-ai paathu, customer-ai paathu
+decide pannanum. "Benchmark" numbers web-la 2026-la paarththa published prices
+(vendor maaralaam, quote pannum munnadi marubadi check pannunga).
+
+1. NEENGA ENNA SELL PANNURENGA?
+------------------------------------------------------------------------------
+Oru multi-company software:
+  - Customers-ku online crackers store (Quick Buy, price list Excel / PDF, UPI QR payment)
+  - Company-ku stock, stock history, orders, users + access control, reports
+  - Ovvoru company-kum thani database, thani design, thani login
+  - Neenga (platform admin) puthu company-ai 2 nimishathula create pannalaam
+Idhu "online ordering + stock + reports" tool. GST invoice / full accounting
+(Tally maadhiri) illa - adhai explain pannitu sell pannunga.
+
+
+2. MARKET BENCHMARK  (reference)
+------------------------------------------------------------------------------
+ Billing / inventory software (India, 2026 published prices):
+  - Vyapar desktop      : from about Rs 3,399 per year (desktop + mobile about Rs 4,010 per year)
+  - Marg ERP (Nano)     : from about Rs 5,550 + GST
+  - TallyPrime Silver   : about Rs 22,500 one-time (another comparison page lists Rs 8,100 - Rs 67,500
+                          one-time licences for Tally / Marg editions)
+  Ivai billing / accounting-ku. Ungalukku extra value: online store, UPI payment proof flow,
+  customer logins, Excel / PDF quick order, multi-user access control - adhunaala konjam
+  adhigam charge panna nyaayam irukku.
+ Hosting (India VPS, 2026 listings):
+  - 2 vCPU / 4 GB RAM plans start from about Rs 880 per month; mid-range plans typically
+    Rs 800 - Rs 2,000 per month. (managed VPS would cost more)
+ Domain about Rs 800 - 1,500 per year, SSL free (Let's Encrypt).
+
+
+3. SUGGESTED SELLING MODELS
+------------------------------------------------------------------------------
+ MODEL A - SaaS (neenga host pannuveenga)  <-- recommended, because multi-company is built for this
+   One-time setup fee per company : Rs 2,000 - 5,000
+      (company + database create, products import, images, UPI set up, 1 hour training)
+   Monthly / yearly per company (excluding 18% GST if you are GST registered):
+      STARTER   Rs 499 / month  or Rs 4,999 / year
+                features: price list, store, quick buy, cart, orders, stock, up to 3 staff
+      BUSINESS  Rs 999 / month  or Rs 9,999 / year
+                + reports, Excel / PDF upload, Quick Buy discount, print bill
+      PRO       Rs 1,999 / month or Rs 19,999 / year
+                + custom domain, design customisation, daily backup copy, priority WhatsApp support
+   Use the "Features" tick boxes in the platform screen to give each plan its features.
+   (Staff / product limits are not auto-enforced yet - see section 7.)
+   SEASON PLAN idea: crackers business is seasonal (Aug - Nov).  "Diwali season pack"
+      Rs 5,999 for 5 months  -> easy for shop owners to say yes.
+
+ MODEL B - One-time source license (customer own server)
+   Single company, one install : Rs 30,000 - 75,000
+   + yearly support / updates (AMC): 15 - 20 % of license price
+   + installation on their server: Rs 3,000 - 8,000
+
+ MODEL C - Reseller / white-label (another agency sells it under their name)
+   Negotiable: Rs 1,50,000 - 3,00,000 one-time or revenue share 30 - 40 %.
+   Give only after you add the improvements in section 7.
+
+
+4. YOUR COST  (SaaS model, approx.)
+------------------------------------------------------------------------------
+   VPS (2 vCPU / 4 GB)          Rs 900 - 2,000 / month
+   Backup storage               Rs 200 - 500 / month
+   Domain                       Rs 100 / month equivalent
+   WhatsApp / SMS (optional)    as used
+   Your support time            biggest cost - first 3 months expect more calls
+   A single small VPS can host many small companies (each has its own database). Start with
+   about 15 - 25 companies per server and watch CPU / RAM before adding more (test with your
+   real data; I have not load-tested this).
+
+
+5. EXAMPLE NUMBERS
+------------------------------------------------------------------------------
+   Server + backup + domain  =  about Rs 2,000 - 2,800 per month
+   BUSINESS plan Rs 999 / month  ->  3 companies pay the infrastructure cost.
+   20 companies x Rs 9,999 / year  =  Rs 2,00,000 / year income
+   Infrastructure  =  about Rs 25,000 - 35,000 / year
+   Remaining (before your time, support help, GST and income tax)  =  about Rs 1.6 lakh
+   Plus setup fees: 20 x Rs 3,000 = Rs 60,000
+
+   Rule of thumb: do not sell below about Rs 400 / month per company - support will eat the margin.
+
+
+6. WHERE TO FIND CUSTOMERS
+------------------------------------------------------------------------------
+   - Crackers wholesalers / retailers / gift-box packers (Sivakasi, Virudhunagar, Coimbatore, Madurai,
+     Chennai and other towns), seasonal shops, direct sales agents
+   - Local shop-owner associations, WhatsApp groups, Instagram / YouTube demo videos
+   - Show the 2 demo companies:  /mk (Normal design)  and  /sri (Current design)
+   - Pitch lines:  "Customers WhatsApp-la list ketka vendaam - Excel / PDF-la qty fill pannitu upload pannaa podhum"
+                   "UPI QR + screenshot verification - cash collection simple"
+                   "Stock history, daily / monthly report - ellam oru screen-la"
+   - Offer 7-day free trial (create a company in 2 minutes) and take advance before the season.
+
+
+7. DO THESE BEFORE SELLING TO MANY CUSTOMERS
+------------------------------------------------------------------------------
+   [ ] Forgot-password (email / OTP) flow                 [ ] Login rate limiting
+   [ ] Automatic daily database backup + restore test     [ ] Plan limits (max staff / products) enforcement
+   [ ] Terms & conditions, privacy policy, refund policy  [ ] GST invoice format (if customers ask)
+   [ ] Error logging / monitoring (PM2 logs, uptime alert) [ ] Load test with 20+ companies
+   [ ] Change all sample passwords and delete demo companies on the live server
+
+
+8. LEGAL AND BUSINESS NOTES  (please confirm with a CA / lawyer)
+------------------------------------------------------------------------------
+   - Firecracker sale is licensed and state rules differ. Your customers (shop owners) are
+     responsible for their licences and delivery rules. Add a clear disclaimer in your agreement:
+     your software only manages enquiries, stock and orders.
+   - Payments go straight to the customer's own UPI id; the money does not pass through you.
+     Keep it that way (it avoids payment-aggregator rules).
+   - If you cross the GST threshold, charge 18% GST on software service and give invoices.
+   - Sign a simple agreement: who owns the data (the company), backup duty, support hours, price changes.
+
+
+9. QUICK PRICE SUMMARY
+------------------------------------------------------------------------------
+   Setup           Rs 2,000 - 5,000 per company (one time)
+   Starter         Rs 499 / month  |  Rs 4,999 / year
+   Business        Rs 999 / month  |  Rs 9,999 / year      <- push this plan
+   Pro             Rs 1,999 / month|  Rs 19,999 / year
+   Season pack     about Rs 5,999 (5 months)
+   Source license  Rs 30,000 - 75,000 + 15-20% yearly support
+==============================================================================

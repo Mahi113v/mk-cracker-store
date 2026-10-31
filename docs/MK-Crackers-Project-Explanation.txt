@@ -1,0 +1,291 @@
+==============================================================================
+ MK CRACKERS - FULL PROJECT EXPLANATION
+ Multi-company crackers store + stock + reports   |   React + Node.js + MySQL
+==============================================================================
+
+1. PROJECT PURPOSE
+------------------------------------------------------------------------------
+Oru software, pala crackers companies use pannalam. Ovvoru company-kum:
+  - thanoda online store (customers order / enquiry podalam)
+  - thanoda products, stock, orders, users, reports
+  - thanoda DATABASE (company-ku mattum), thanoda design, thanoda login
+Neenga (product owner) "Platform Admin". Neenga company create pannum bodhu
+database name kuduthaa, antha name la database automatic-ah create aagum, ellaa
+tables-um serndhu. Antha company antha database-ai mattum thaan use pannum.
+
+
+2. THREE LEVELS OF USERS
+------------------------------------------------------------------------------
+ A) PLATFORM ADMIN  (product owner - neenga)       login: /platform/login
+    - Company create / edit / block, database create, design select,
+      features on/off, company admin password reset, "Login as admin".
+ B) COMPANY ADMIN / STAFF  (company-oda owner & staff)   login: /<code>/admin/login
+    - Company admin = ellaa options. Staff = company admin tick panna options mattum.
+ C) CUSTOMERS  (store users)                        login: /<code>/login
+    - Products paakkalam, Quick Buy, cart, enquiry, UPI payment, screenshot upload,
+      My Enquiries, Track order, Print bill.
+
+
+3. ARCHITECTURE  (how company separation works)
+------------------------------------------------------------------------------
+                    +---------------------------+
+   Browser  ------> |  React (Vite / built dist) |
+                    +-------------+-------------+
+                                  | every API call sends header  X-Company: <code>
+                                  | (and login token)
+                    +-------------v-------------+
+                    |  Node.js / Express API     |
+                    |  tenant middleware:        |
+                    |   code -> company record   |
+                    |   -> that company's DB     |
+                    +------+----------------+----+
+                           |                |
+                  +--------v------+  +------v------------------------------+
+                  |  MASTER DB    |  | COMPANY DBs (one per company)        |
+                  |  mk_master    |  |  mk_crackers   sri_crackers  ...     |
+                  |  companies    |  |  users, products, stock, orders ...  |
+                  |  platform_    |  |  every row has  company_id           |
+                  |  users        |  +--------------------------------------+
+                  +---------------+
+
+ Safety rules built in:
+  1. Company code (URL)  ->  companies table  ->  db_name. Request antha DB-ai mattum thaan thoduvadhu.
+  2. Login token-la company id (cid) irukku. Vera company-ku antha token use pannaa 401 ("Please login to this company").
+  3. Every table-la company_id column irukku (default value = antha company id).
+  4. Uploaded images: uploads/<companyCode>/... (company-wise folders).
+  5. db_name unique: oru database-ai rendu companies use panna mudiyaadhu.
+
+
+4. FOLDER STRUCTURE  (frontend + backend ore folder)
+------------------------------------------------------------------------------
+backend/                          <- D:\Project\crackers-store\backend
+|-- package.json                  ore package.json
+|-- .env.example  (.env)          DB / JWT / platform admin settings
+|-- index.html, vite.config.mjs   React entry + dev server (port 8000, proxy /api -> 5000)
+|-- src/                          REACT
+|   |-- App.jsx                   routes:  /  /platform/*  /:company/*  /:company/admin/*
+|   |-- api.js                    axios (adds X-Company + token), downloadFile()
+|   |-- context/                  AuthContext, CompanyContext (design/features), CartContext
+|   |-- components/               ui.jsx (SweetAlert toast/confirm, image preview, Modal),
+|   |                             nav.jsx (company-aware links), UserLayout, AdminLayout,
+|   |                             PlatformLayout, PrintBill, DesignPicker, ProductCard
+|   |-- pages/                    Home, Products, QuickBuy, Cart, Enquiries, EnquiryDetail,
+|   |                             TrackOrder, Availability, Auth
+|   |-- pages/admin/              Dashboard, Products, Categories, Brands, Stock, Orders,
+|   |                             Reports, Users (access control), Settings (design)
+|   |-- pages/platform/           Companies
+|   `-- index.css                 3 designs: default / normal / current
+|-- server/                       NODE.JS
+|   |-- server.js
+|   |-- config/db.js              master pool + per-company pools + admin connection
+|   |-- middleware/               tenant.js, auth.js (JWT + permissions), upload.js
+|   |-- lib/                      provision.js (create company + DB), migrator.js,
+|   |                             permissions.js, pricefile.js (Excel/PDF), exporter.js, helpers.js
+|   `-- routes/                   platform.js, auth.js, public.js, orders.js, admin.js, reports.js
+|-- database/
+|   |-- migrations/master/        001_create_master_tables.sql
+|   |-- migrations/tenant/        001_create_company_tables.sql, 002_add_report_indexes.sql
+|   `-- seeders/                  index.js, sampleUsers.js
+|-- scripts/db.js                 migrate | status | seed | setup | fresh
+|-- seed-images/                  PNG images for demo products and categories
+`-- uploads/                      uploaded images (per company folder)
+
+
+5. DATABASES
+------------------------------------------------------------------------------
+MASTER DB  (name = MASTER_DB in .env, default mk_master)
+  companies        id, name, code (URL), db_name (unique), design (default|normal|current),
+                   brand_color, features (JSON list), status (active|blocked|provisioning)
+  platform_users   platform admin logins
+
+COMPANY DB  (name = what you type while creating the company)   all tables have company_id
+  users            role: company_admin | staff | user,   permissions (JSON list for staff),   status
+  categories, brands
+  products         code, name, brand, category, pack, mrp, discount_percent,
+                   price (auto = mrp - discount), stock, low_stock_level, is_active
+  product_images   many images per product, sort_order 0 = main image
+  stock_movements  IN / OUT / SET / ORDER / CANCEL, qty, balance, reason, user, date
+  orders           order_no (O-1001), user, total, status, payment_proof, address ...
+  order_items      code, name, mrp, discount_percent, price, qty, amount (saved snapshot)
+  settings         store name, phone, announcement, UPI id, banner
+  schema_migrations  which migration files already ran
+
+
+6. ROLES AND ACCESS CONTROL  (admin page: Users & Access)
+------------------------------------------------------------------------------
+ Company admin: oru user-ku role "Staff" kudutthu, ticks podalam:
+   dashboard.view          products.view / products.manage
+   categories.manage       stock.view / stock.manage / stock.history
+   orders.view / orders.manage         reports.view
+   users.manage (customers)            settings.manage
+   discount.change (Quick Buy discount)
+ Quick presets: Manager, Stock keeper, Sales, View only, All, None.
+ - Menu-la user-ku permission illatha options theriyaadhu; URL-la poittaalum "No access".
+ - Server side-um check pannum (API 403) - UI-ai maathi bypass panna mudiyaadhu.
+ - Print-la "alter discount" = COMPANY ADMIN mattum.
+ - Staff, company admin / vera staff-ai edit panna mudiyaadhu (company admin mattum).
+ - Platform admin, company-level "features" on/off pannalam:
+     reports, pricelist, import, quick_discount, print
+
+
+7. DESIGN OPTIONS  (per company)
+------------------------------------------------------------------------------
+ default  - plain, flat, simple. Evlo project-kum ketkura basic look.
+ normal   - konjam better: rounded cards, soft shadows, gradient banner, hover effects.
+ current  - latest trend: floating glass navbar, gradients, pill buttons, big hero,
+            card hover/zoom animations, glass cards.
+ Company create pannum bodhu select pannalam (preview cards irukku). Company id-ku
+ etha design save aachooo, antha company-oda store + admin antha design-la varum.
+ Company admin: Settings -> Design -> Apply (brand colour-um maathalaam).
+
+
+8. STORE (CUSTOMER) FEATURES
+------------------------------------------------------------------------------
+ - Home: banner, categories (image), popular products
+ - All Products: card view, search, brand/category filter, discount badge, image click = big preview
+ - Quick Buy: table grouped by category, qty +/-, amount, bottom total
+ - Price List button  -> popup: Excel or PDF ->
+        Excel: Code, Name, Brand, Category, Pack, MRP, Disc %, Price, Qty (yellow column)
+        PDF  : same list with fillable Qty boxes
+ - Upload Excel / PDF (Quick Buy) -> Qty column / PDF Qty boxes padichi cart-la quantity fill aagum.
+        Stock-ku mela qty irundha stock alavukku kuraichidum; theriyaadha code / out of stock list-ai
+        SweetAlert popup-la kaatum. (Plain PDF-la "CODE ... QTY" lines-um padikkum.)
+ - Cart -> Place enquiry (stock reserve aagum)
+ - My Enquiries (All / Unpaid / Pending Verification / Paid) -> View Details
+ - Enquiry details: UPI QR (amount + order no filled), UPI ID copy, payment screenshot upload,
+   Print bill, Cancel (unpaid mattum)
+ - Track order by number, Check availability
+
+
+9. QUICK BUY DISCOUNT  (company admin / allowed staff only)
+------------------------------------------------------------------------------
+ - Discount bar: "% -> Apply to all" and "Reset"; each row-la thaniya discount-um maathalaam.
+ - Price = round( MRP x (100 - discount) / 100 ).  Amount = price x qty.  Total live-ah maarum.
+ - Cart-la antha rate-la porum; order podumbodhu server antha discount-ai accept pannum
+   (user company admin / discount.change permission irundha mattum). Customer
+   browser-la maathi anuppinaalum server ignore pannidum.
+ - Order items-la discount % save aagum (reports-la correct net sales varum).
+
+
+10. PRINT BILL
+------------------------------------------------------------------------------
+ - Enquiry details page + admin order screen-la "Print" button.
+ - Bill: company name, order no, customer, items (MRP, Disc %, Rate, Qty, Amount), total, you save.
+ - COMPANY ADMIN-ku mattum "Alter discount for this print": % type panna bill-la ellaa items-um antha
+   discount-la recalculate aagum. Print-ku mattum; save panna order maaraadhu.
+
+
+11. ADMIN PANEL (company)
+------------------------------------------------------------------------------
+ Dashboard   today / month sales, revenue, pending verification, low / out of stock
+ Products    add / edit / delete, many images, main image, active / hidden, auto price
+ Categories  image upload;   Brands
+ Stock       Current stock (Stock In / Stock Out / Set exact + reason, low / out filter)
+             Stock history -> FILTER by Product, Type, From date, To date + totals
+ Orders      payment screenshot preview, Verify & mark Paid, Delivered, Reject, Cancel (stock returns),
+             Print bill
+ Reports     Sales: Daily / Weekly / Monthly / Yearly + date range + product-wise + Excel download
+             Stock: movement by period (in, out, adjusted, sold, returned) + product-wise
+             (opening, in, out, sold, closing, stock value) + Excel download
+ Users & Access   add users, role, permission tick boxes, block, password, delete
+ Settings    store name, phone, announcement, UPI ID, banner image, DESIGN
+
+
+12. PLATFORM ADMIN PANEL
+------------------------------------------------------------------------------
+ Companies list: name, code, database, design, users / products / orders count, status
+ + New company: name, code, DATABASE NAME, design, brand colour, features, company admin login
+ Edit: name, design, colour, features, status (block = nobody can login)
+ Login as admin (opens that company's admin), Reset company admin password, Block / Activate
+
+
+13. MIGRATION AND SEEDER  (important)
+------------------------------------------------------------------------------
+ Commands (project folder):
+     npm run migrate          master DB + pending migrations on master and every company DB
+     npm run migrate:status   shows [x] done / [ ] pending
+     npm run seed             platform admin + demo companies (mk, sri) + sample data
+     npm run setup            migrate + seed
+     npm run db:fresh         DROP ALL + migrate + seed
+ How it works:
+   1. migrate creates MASTER DB (if missing) and runs database/migrations/master/*.sql
+   2. For every row in companies, it runs database/migrations/tenant/*.sql inside that company DB.
+      "schema_migrations" table remembers which files ran, so re-running is safe.
+   3. {{CID}} inside the SQL is replaced with that company's id (used as the default company_id).
+   4. New company from the platform screen runs the same tenant migrations automatically.
+ To add a table / column later:  create  database/migrations/tenant/003_add_something.sql  and run  npm run migrate.
+
+ SAMPLE USERS TABLE DATA  (seeded in each demo company DB; password is hashed in the table)
+ +----+------------------+---------------------------+---------------+---------------------------+--------------+
+ | id | name             | email                     | role          | access                    | password     |
+ +----+------------------+---------------------------+---------------+---------------------------+--------------+
+ |  1 | MK Crackers Admin| admin@mkcrackers.com      | company_admin | everything                | Admin@123    |
+ |  2 | Ravi Manager     | manager@mkcrackers.com    | staff         | manager preset            | Manager@123  |
+ |  3 | Suresh Stock     | stock@mkcrackers.com      | staff         | dashboard, products view, | Stock@123    |
+ |    |                  |                           |               | stock (view/manage/hist)  |              |
+ |  4 | Divya Sales      | sales@mkcrackers.com      | staff         | dashboard, orders, reports| Sales@123    |
+ |    |                  |                           |               | + discount.change         |              |
+ |  5 | Karthik Kumar    | customer1@mkcrackers.com  | user          | shop only                 | Customer@123 |
+ |  6 | Priya Devi       | customer2@mkcrackers.com  | user          | shop only                 | Customer@123 |
+ |  7 | Arun Raj         | customer3@mkcrackers.com  | user          | shop only                 | Customer@123 |
+ +----+------------------+---------------------------+---------------+---------------------------+--------------+
+ Platform admin (master DB, table platform_users):  superadmin@mkcrackers.com / Super@123
+ Company "sri" has the same users with @srimurugan.com.
+ Edit the data in database/seeders/sampleUsers.js and database/seeders/index.js.
+ The seeder also adds products with PNG images, 6 categories and sample back-dated orders so the
+ daily / weekly / monthly / yearly reports show data.
+
+
+14. DEPLOYMENT CHECKLIST  (online server)
+------------------------------------------------------------------------------
+ 1. Linux VPS (2 vCPU / 4 GB RAM is enough to start), Node 20 LTS, MySQL 8.
+ 2. Upload project, copy .env.example to .env, set DB_PASSWORD, JWT_SECRET (long random),
+    CLIENT_URL = https://yourdomain.com , PLATFORM_EMAIL / PLATFORM_PASSWORD.
+ 3. npm install ; npm run migrate ; (npm run seed only if you want demo data)
+ 4. npm run build ; run API with PM2:   pm2 start server/server.js --name mk-crackers
+ 5. Nginx reverse proxy to port 5000 + free SSL (Let's Encrypt). Set  client_max_body_size 10M;
+ 6. MySQL user: create a dedicated user with CREATE/DROP/ALL on the databases (needed to create
+    company databases from the platform screen).
+ 7. Backups: daily  mysqldump  of mk_master AND every company database + the uploads folder.
+ 8. Change every sample password. Block / delete the demo companies on a real server.
+
+
+15. SECURITY NOTES
+------------------------------------------------------------------------------
+ - Passwords bcrypt hashed; JWT 7 days; all SQL parameterised.
+ - Database names are validated (a-z, 0-9, _) before CREATE DATABASE.
+ - Uploads: only JPG / PNG / WEBP / GIF up to 5 MB; Excel / PDF import 8 MB, read in memory.
+ - Not included yet: forgot-password email flow, login rate limiting, audit log, 2-step login.
+   Add these before selling to many customers.
+
+
+16. API OVERVIEW  (header  X-Company: <code>  except /api/platform)
+------------------------------------------------------------------------------
+ POST /api/platform/login, GET/POST/PUT /api/platform/companies, POST .../impersonate
+ GET  /api/company | /api/settings | /api/products | /api/categories | /api/brands | /api/track/:no
+ GET  /api/pricelist?format=xlsx|pdf        POST /api/import-qty (file)
+ POST /api/auth/register | /login | /admin/login      GET /api/auth/me
+ POST /api/orders ; GET /api/orders ; GET /api/orders/:id ; POST /:id/payment ; POST /:id/cancel
+ /api/admin/...  (permission checked): stats, products, categories, brands, stock, stock/movements,
+     orders, users, permissions, settings, design, reports/sales, reports/sales/products,
+     reports/stock, reports/stock/products   (add ?format=xlsx for Excel)
+
+
+17. KNOWN LIMITS / NEXT FEATURES
+------------------------------------------------------------------------------
+ GST invoice + accounting, delivery charges, coupon codes, email / SMS / WhatsApp alerts,
+ forgot password, payment gateway (Razorpay), plan limits enforcement (users / products count),
+ custom domain per company, automatic backups screen, Tamil language option.
+
+
+18. TEST RESULTS  (done while building)
+------------------------------------------------------------------------------
+ - Migrations + seeders from empty database (2 companies, 2 databases) - OK, re-run safe.
+ - Company create from API: new DB with all tables; duplicate / bad database name rejected.
+ - Cross-company token rejected; staff permission blocks (403) verified.
+ - Reports (day / week / month / year, sales + stock + Excel) verified.
+ - Price list Excel and PDF generated; filled Excel and filled PDF uploaded -> quantities read back.
+ - Discount override accepted only from company admin; customer's attempt ignored.
+ - 21 + 15 browser-style (jsdom) UI checks passed: all pages, permission menus, design switch,
+   discount calculation, print bill alter, price-list popup, create-company form.
+==============================================================================
