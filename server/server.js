@@ -12,7 +12,7 @@ app.set('trust proxy', 1);
 
 // CORS: CLIENT_URL can hold one or more origins separated by commas.
 // Same-origin requests (React served by this server) are not affected.
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:8000')
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5000')
   .split(',')
   .map((s) => s.trim().replace(/\/+$/, ''))
   .filter(Boolean);
