@@ -16,6 +16,8 @@
   },
   "nodemonConfig": { "watch": ["server", "database"], "ext": "js,json,sql" },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
