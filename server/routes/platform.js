@@ -53,6 +53,8 @@ router.post('/companies', ah(async (req, res) => {
   res.status(201).json(parse(company));
 }));
 
+router.use('/companies/:id/assets', require('./companyAssets'));
+
 router.put('/companies/:id', ah(async (req, res) => {
   const { name, design, brand_color, status } = req.body;
   const features = Array.isArray(req.body.features) ? req.body.features.filter((f) => ALL_FEATURES.includes(f)) : null;
