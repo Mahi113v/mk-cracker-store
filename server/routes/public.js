@@ -10,9 +10,18 @@ router.get('/company', (req, res) => {
   res.json({ name, code, design, brand_color, features, image, logo, icon, whatsapp: !!Number(whatsapp_enabled) });
 });
 
+// router.get('/settings', ah(async (req, res) => {
+//   const s = await getSettings(req.db);
+//   res.json({ store_name: s.store_name, phone: s.phone, announcement: s.announcement, banner_image: s.banner_image });
+// }));
+
 router.get('/settings', ah(async (req, res) => {
   const s = await getSettings(req.db);
-  res.json({ store_name: s.store_name, phone: s.phone, announcement: s.announcement, banner_image: s.banner_image });
+  res.json({
+    store_name: s.store_name, announcement: s.announcement, phone: s.phone, banner_image: s.banner_image,
+    tagline: s.tagline, address: s.address, phone2: s.phone2, email: s.email,
+    hours: s.hours, whatsapp: s.whatsapp, facebook: s.facebook, instagram: s.instagram, youtube: s.youtube,
+  });
 }));
 
 router.get('/categories', ah(async (req, res) => {

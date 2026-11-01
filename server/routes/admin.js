@@ -403,7 +403,8 @@ router.get('/archives/:aid/orders/:id', archPerm, ah(async (req, res) => {
 
 // ---------------------------------------------------------------- SETTINGS
 const bannerUpload = uploader('banners');
-const SETTING_KEYS = ['store_name', 'phone', 'announcement', 'upi_id', 'upi_name'];
+const SETTING_KEYS = [ 'store_name', 'phone', 'announcement', 'upi_id', 'upi_name', 'tagline', 'address', 'phone2',
+  'email', 'hours', 'whatsapp', 'facebook', 'instagram', 'youtube', ];
 
 router.get('/settings', perm('settings.manage'), ah(async (req, res) => res.json(await getSettings(req.db))));
 

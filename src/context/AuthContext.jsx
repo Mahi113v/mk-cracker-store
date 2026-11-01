@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import api, { tokenKey } from '../api'
 
@@ -28,14 +28,26 @@ export function AuthProvider({ children }) {
     setSt({ scope, user: data.user })
     return data.user
   }
+
+  // "email" can be an email OR a 10 digit mobile number (backend decides)
   const login = async (email, password, mode = 'customer') => {
     const url = scope === 'platform' ? '/api/platform/login' : mode === 'admin' ? '/api/auth/admin/login' : '/api/auth/login'
-    return finish((await api.post(url, { email, password })).data)
+    return finish((await api.post(url, { email, identifier: email, password })).data)
   }
   const register = async (form) => finish((await api.post('/api/auth/register', form)).data)
   const logout = () => { localStorage.removeItem(tokenKey(scope)); setSt({ scope, user: null }) }
+
+  // Reload the logged-in user from the server (after profile edit)
+  const refresh = useCallback(async () => {
+    const r = await api.get(scope === 'platform' ? '/api/platform/me' : '/api/auth/me')
+    setSt({ scope, user: r.data.user })
+    return r.data.user
+  }, [scope])
+
   const can = (p) => !!user && (user.role === 'company_admin' || (user.permissions || []).includes(p))
   const isStaff = !!user && (user.role === 'company_admin' || user.role === 'staff')
 
-  return <Ctx.Provider value={{ user, loading, login, register, logout, can, isStaff }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, loading, login, register, logout, refresh, can, isStaff }}>{children}</Ctx.Provider>
 }
+
+

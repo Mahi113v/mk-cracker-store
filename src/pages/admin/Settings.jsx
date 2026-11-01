@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react'
 import api, { errMsg } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useCompany } from '../../context/CompanyContext'
-import DesignPicker from '../../components/DesignPicker'
 import { Link } from '../../components/nav'
 import FileDrop, { FileTile } from '../../components/FileDrop'
 import PasswordInput from '../../components/PasswordInput'
 import { Loading, Modal, fmtDate, inr, useUI } from '../../components/ui'
+
+// every text setting saved by the form below
+const TEXT_KEYS = [
+  'store_name', 'phone', 'announcement', 'upi_id', 'upi_name',
+  'tagline', 'address', 'phone2', 'email', 'hours', 'whatsapp', 'facebook', 'instagram', 'youtube',
+]
 
 export default function Settings() {
   const { toast, preview } = useUI()
@@ -26,7 +31,7 @@ export default function Settings() {
   const save = async (e) => {
     e.preventDefault()
     const fd = new FormData()
-    ;['store_name', 'phone', 'announcement', 'upi_id', 'upi_name'].forEach((k) => fd.append(k, f[k] || ''))
+    TEXT_KEYS.forEach((k) => fd.append(k, f[k] || ''))
     if (banner[0]) fd.append('banner', banner[0])
     if (removeBanner) fd.append('remove_banner', '1')
     setBusy(true)
@@ -42,7 +47,6 @@ export default function Settings() {
       {user.role === 'company_admin' && (
         <div className="card mb" style={{ maxWidth: 820 }}>
           <h3 className="mb">Design</h3>
-          {/* <DesignPicker value={design} onChange={setDesign} color={color} /> */}
           <div className="row mt">
             <label className="f" style={{ margin: 0 }}>Brand colour</label><input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
             <button className="btn primary" onClick={saveDesign}>Apply design</button>
@@ -57,6 +61,20 @@ export default function Settings() {
           <div className="field"><label className="f">Contact phone</label><input className="input" value={f.phone || ''} onChange={set('phone')} /></div>
         </div>
         <div className="field"><label className="f">Top announcement bar</label><input className="input" value={f.announcement || ''} onChange={set('announcement')} /></div>
+
+        <h3 className="mt mb">Contact &amp; footer details</h3>
+        <p className="mute" style={{ marginTop: 0 }}>These are shown in the footer at the bottom of every store page. Empty fields are hidden.</p>
+        <div className="field"><label className="f">Tagline</label><input className="input" placeholder="Light Up Your Celebrations" value={f.tagline || ''} onChange={set('tagline')} /></div>
+        <div className="field"><label className="f">Address</label><textarea className="input" rows="2" value={f.address || ''} onChange={set('address')} /></div>
+        <div className="grid2">
+          <div className="field"><label className="f">Second phone</label><input className="input" placeholder="+919585009820" value={f.phone2 || ''} onChange={set('phone2')} /></div>
+          <div className="field"><label className="f">Email</label><input className="input" type="email" placeholder="care@yourshop.in" value={f.email || ''} onChange={set('email')} /></div>
+          <div className="field"><label className="f">Opening hours</label><input className="input" placeholder="Open 24/7 - Always Available" value={f.hours || ''} onChange={set('hours')} /></div>
+          <div className="field"><label className="f">WhatsApp number</label><input className="input" placeholder="919952678110" value={f.whatsapp || ''} onChange={set('whatsapp')} /></div>
+          <div className="field"><label className="f">Facebook link</label><input className="input" placeholder="https://facebook.com/..." value={f.facebook || ''} onChange={set('facebook')} /></div>
+          <div className="field"><label className="f">Instagram link</label><input className="input" placeholder="https://instagram.com/..." value={f.instagram || ''} onChange={set('instagram')} /></div>
+          <div className="field"><label className="f">YouTube link</label><input className="input" placeholder="https://youtube.com/..." value={f.youtube || ''} onChange={set('youtube')} /></div>
+        </div>
 
         <h3 className="mt mb">Payment (UPI)</h3>
         <div className="grid2">
@@ -78,7 +96,6 @@ export default function Settings() {
 
 // ---------------------------------------------------------------- YEAR-END: backup + clear orders
 function YearEnd() {
-  const { toast } = useUI()
   const [pv, setPv] = useState(null)
   const [list, setList] = useState([])
   const [open, setOpen] = useState(false)
@@ -150,3 +167,5 @@ function CloseYearModal({ pv, onClose, onDone }) {
     </Modal>
   )
 }
+
+

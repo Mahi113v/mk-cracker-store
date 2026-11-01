@@ -19,6 +19,7 @@ function Shell({ title, sub, children, error, mark }) {
   )
 }
 
+// Email only (admin + platform login)
 function Fields({ f, setF }) {
   return (
     <>
@@ -28,21 +29,36 @@ function Fields({ f, setF }) {
   )
 }
 
+// Email OR mobile number (customer login)
+const normalizeIdentifier = (v) => {
+  const s = String(v || '').trim()
+  return s.includes('@') ? s.toLowerCase() : s.replace(/\D/g, '').slice(-10)
+}
+
 export function Login() {
   const { login } = useAuth()
   const { company } = useCompany()
   const nav = useNavigate()
   const from = useLocation().state?.from || '/'
-  const [f, setF] = useState({ email: '', password: '' })
+  const [f, setF] = useState({ identifier: '', password: '' })
   const [error, setError] = useState('')
   const submit = async (e) => {
     e.preventDefault(); setError('')
-    try { await login(f.email, f.password); nav(from, { replace: true }) } catch (err) { setError(errMsg(err)) }
+    const id = normalizeIdentifier(f.identifier)
+    if (!id.includes('@') && id.length !== 10) return setError('Enter a valid email or 10 digit mobile number')
+    try { await login(id, f.password); nav(from, { replace: true }) } catch (err) { setError(errMsg(err)) }
   }
   return (
     <Shell mark={<BrandMark name={company.name} logo={company.logo} icon={company.icon} size={56} />} title="Login" sub={`Welcome to ${company.name}. Login to place and track your enquiries.`} error={error}>
       <form onSubmit={submit}>
-        <Fields f={f} setF={setF} />
+        <div className="field">
+          <label className="f">Email or Mobile number</label>
+          <input className="input" required autoComplete="username" value={f.identifier}
+            placeholder="you@mail.com or 9876543210"
+            onChange={(e) => setF({ ...f, identifier: e.target.value })} />
+        </div>
+        <div className="field"><label className="f">Password</label>
+          <PasswordInput required autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>
         <button className="btn primary block">Login</button>
       </form>
       <p className="mute center">New here? <Link to="/register" className="link">Create an account</Link></p>
@@ -60,14 +76,18 @@ export function Register() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   const submit = async (e) => {
     e.preventDefault(); setError('')
-    try { await register(f); nav('/') } catch (err) { setError(errMsg(err)) }
+    const phone = f.phone.replace(/\D/g, '').slice(-10)
+    if (phone.length !== 10) return setError('Enter a valid 10 digit mobile number')
+    try { await register({ ...f, email: f.email.trim().toLowerCase(), phone }); nav('/') } catch (err) { setError(errMsg(err)) }
   }
   return (
     <Shell mark={<BrandMark name={company.name} logo={company.logo} icon={company.icon} size={56} />} title="Create account" sub="Sign up to order crackers online." error={error}>
       <form onSubmit={submit}>
         <div className="field"><label className="f">Full name</label><input className="input" required value={f.name} onChange={set('name')} /></div>
         <div className="field"><label className="f">Email</label><input className="input" type="email" required value={f.email} onChange={set('email')} /></div>
-        <div className="field"><label className="f">Phone</label><input className="input" required value={f.phone} onChange={set('phone')} /></div>
+        <div className="field"><label className="f">Mobile number</label>
+          <input className="input" type="tel" inputMode="numeric" maxLength={10} required value={f.phone}
+            onChange={(e) => setF({ ...f, phone: e.target.value.replace(/\D/g, '') })} /></div>
         <div className="field"><label className="f">Password (min 6 characters)</label><PasswordInput minLength="6" required autoComplete="new-password" value={f.password} onChange={set('password')} /></div>
         <button className="btn primary block">Create account</button>
       </form>
@@ -123,3 +143,5 @@ export function PlatformLogin() {
     </div>
   )
 }
+
+

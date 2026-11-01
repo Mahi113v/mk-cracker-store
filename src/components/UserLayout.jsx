@@ -7,6 +7,8 @@ import { useCompany } from '../context/CompanyContext'
 import { inr } from './ui'
 import BrandMark from './BrandMark'
 import PriceListDialog from './PriceListDialog'
+import UserMenu from './UserMenu'
+import Footer from './Footer'
 
 export default function UserLayout() {
   const { user, logout, isStaff } = useAuth()
@@ -23,6 +25,8 @@ export default function UserLayout() {
 
   const cls = ({ isActive }) => (isActive ? 'active' : '')
   const name = info.store_name || company.name
+  const handleLogout = () => { logout(); nav('/') }
+
   return (
     <>
       {info.announcement && <div className="announce">{info.announcement}</div>}
@@ -41,11 +45,7 @@ export default function UserLayout() {
           <div className="nav-right">
             <Link to="/cart" className="cart-ic" aria-label="Cart">🛒{count > 0 && <b>{count}</b>}</Link>
             {user ? (
-              <>
-                {isStaff && <Link to="/admin" className="btn sm outline">Admin Panel</Link>}
-                <span className="mute">👤 {user.name}</span>
-                <button className="btn sm" onClick={() => { logout(); nav('/') }}>Logout</button>
-              </>
+              <UserMenu user={user} isStaff={isStaff} onLogout={handleLogout} />
             ) : (
               <>
                 <Link to="/login" className="btn sm">Login</Link>
@@ -62,9 +62,12 @@ export default function UserLayout() {
       {count > 0 && loc.pathname !== `/${company.code}/cart` && loc.pathname !== `/${company.code}/quick-buy` && (
         <Link to="/cart" className="fab">🛒 {count}<small>{inr(total)}</small></Link>
       )}
-      <footer className="container mute center" style={{ padding: '10px 0 30px' }}>
+      {/* <footer className="container mute center" style={{ padding: '10px 0 30px' }}>
         {name} {info.phone && `· Call: ${info.phone}`} · <Link to="/admin/login">Admin</Link>
-      </footer>
+      </footer> */}
+      <Footer name={name} company={company} info={info} />
     </>
   )
 }
+
+

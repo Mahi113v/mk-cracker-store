@@ -32,6 +32,7 @@ import AdminOrders from './pages/admin/Orders'
 import Users from './pages/admin/Users'
 import Reports from './pages/admin/Reports'
 import Settings from './pages/admin/Settings'
+import Profile from './pages/Profile'
 
 // Loads the company (design + brand colour + features) from the company code in the URL
 function CompanyShell() {
@@ -114,6 +115,7 @@ export default function App() {
           <Route path="cart" element={<RequireUser><Cart /></RequireUser>} />
           <Route path="enquiries" element={<RequireUser><Enquiries /></RequireUser>} />
           <Route path="enquiries/:id" element={<RequireUser><EnquiryDetail /></RequireUser>} />
+          <Route path="profile" element={<RequireUser><Profile /></RequireUser>} />
         </Route>
         <Route path="admin/login" element={<AdminLogin />} />
         <Route path="admin" element={<RequireStaff><AdminLayout /></RequireStaff>}>
