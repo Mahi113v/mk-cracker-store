@@ -27,7 +27,12 @@ export default function PrintBill({ order, onClose }) {
   const Bill = () => (
     <div className="bill">
       <div className="bill-head">
-        <div><h2>{info.store_name || company.name}</h2>{info.phone && <div>Phone: {info.phone}</div>}</div>
+        <div className="bill-brand">
+          {(company.logo || company.icon)
+            ? <img className="bill-logo" src={company.logo || company.icon} alt="" />
+            : <span className="bill-logo letter">{(info.store_name || company.name || '?').trim().charAt(0).toUpperCase()}</span>}
+          <div><h2>{info.store_name || company.name}</h2>{info.phone && <div>Phone: {info.phone}</div>}</div>
+        </div>
         <div className="right"><b>ENQUIRY / BILL</b><div>No: <b>{order.order_no}</b></div><div>{fmtDateTime(order.created_at)}</div></div>
       </div>
       <div className="bill-to"><b>{order.name}</b> · {order.phone}<br />{order.address}</div>

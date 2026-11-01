@@ -32,11 +32,14 @@ export default function Products() {
         <div className="mute">Showing {list.length} of {all.length} products</div>
       </div>
       <div className="row mb">
-        <input className="input grow" style={{ minWidth: 200 }} placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="input" style={{ width: 170 }} value={brand} onChange={(e) => setBrand(e.target.value)}>
+        <div className="searchbox grow" style={{ minWidth: 200 }}>
+          <input className="input" placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          {search && <button type="button" className="sb-clear" onClick={() => setSearch('')} aria-label="Clear search" title="Clear">×</button>}
+        </div>
+        <select className="input" style={{ width: 170 }} value={brand} onChange={(e) => { setBrand(e.target.value); setSearch('') }}>
           <option value="">All Brands</option>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <select className="input" style={{ width: 210 }} value={category} onChange={(e) => (e.target.value ? setSp({ category: e.target.value }) : setSp({}))}>
+        <select className="input" style={{ width: 210 }} value={category} onChange={(e) => { setSearch(''); if (e.target.value) setSp({ category: e.target.value }); else setSp({}) }}>
           <option value="">All Categories</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>

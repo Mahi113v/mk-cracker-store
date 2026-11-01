@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from '../components/nav'
 import api, { errMsg } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useCompany } from '../context/CompanyContext'
+import ImportDialog from '../components/ImportDialog'
 import { Empty, Loading, Stepper, Thumb, calcPrice, imgs, inr, useUI } from '../components/ui'
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -15,7 +16,7 @@ export default function QuickBuy() {
   const { has } = useCompany()
   const { toast, alert } = useUI()
   const canDisc = can('discount.change') && has('quick_discount') // only company admin / allowed staff
-  const fileRef = useRef()
+  const [importOpen, setImportOpen] = useState(false)
 
   const [all, setAll] = useState(null)
   const [cats, setCats] = useState([])
@@ -66,32 +67,29 @@ export default function QuickBuy() {
   }
 
   // Excel / PDF upload -> fill quantities
-  const onFile = async (e) => {
-    const file = e.target.files[0]
-    e.target.value = ''
-    if (!file) return
-    const fd = new FormData()
-    fd.append('file', file)
-    try {
-      const { data } = await api.post('/api/import-qty', fd)
-      let added = 0
-      const notes = []
-      data.items.forEach(({ code, qty }) => {
-        const p = all.find((x) => x.code.toUpperCase() === code.toUpperCase())
-        if (!p) return
-        if (p.stock <= 0) { notes.push(`${p.code}: out of stock`); return }
-        const q = Math.min(qty, p.stock)
-        if (q < qty) notes.push(`${p.code}: only ${p.stock} available (file has ${qty})`)
-        setQty(line(p), q)
-        added++
-      })
-      data.unknown.forEach((c) => notes.push(`${c}: code not found`))
-      if (!added && !notes.length) return toast('No quantities found in the file', 'warn')
-      alert(`${added} product(s) added to cart`,
-        notes.length ? `<div style="text-align:left;font-size:14px"><b>Please check:</b><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>` : 'Quantities were read from your file.',
-        added ? 'success' : 'warning')
-    } catch (err) { toast(errMsg(err), 'err') }
+  const applyImport = (data) => {
+    let added = 0
+    const notes = []
+    data.items.forEach(({ code, qty }) => {
+      const p = all.find((x) => x.code.toUpperCase() === code.toUpperCase())
+      if (!p) return
+      if (p.stock <= 0) { notes.push(`${p.code}: out of stock`); return }
+      const q = Math.min(qty, p.stock)
+      if (q < qty) notes.push(`${p.code}: only ${p.stock} available (file has ${qty})`)
+      setQty(line(p), q)
+      added++
+    })
+    data.unknown.forEach((c) => notes.push(`${c}: code not found`))
+    if (!added && !notes.length) return toast('No quantities found in the file', 'warn')
+    alert(`${added} product(s) added to cart`,
+      notes.length ? `<div style="text-align:left;font-size:14px"><b>Please check:</b><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>` : 'Quantities were read from your file.',
+      added ? 'success' : 'warning')
   }
+
+  // search box: clear button; changing brand / category also clears the search
+  const clearSearch = () => setSearch('')
+  const onBrand = (v) => { setBrand(v); clearSearch() }
+  const onCategory = (v) => { setCategory(v); clearSearch() }
 
   const s = search.toLowerCase()
   const list = all.filter((p) =>
@@ -107,19 +105,19 @@ export default function QuickBuy() {
         <h1>Quick Buy</h1>
         <div className="row">
           {has('import') && (
-            <>
-              <input ref={fileRef} type="file" hidden accept=".xlsx,.csv,.pdf" onChange={onFile} />
-              <button className="btn outline" onClick={() => fileRef.current.click()}>⬆ Upload Excel / PDF</button>
-            </>
+            <button className="btn outline" onClick={() => setImportOpen(true)}>⬆ Upload Excel / PDF</button>
           )}
         </div>
       </div>
       <div className="row mb">
-        <input className="input grow" style={{ minWidth: 200 }} placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="input" style={{ width: 170 }} value={brand} onChange={(e) => setBrand(e.target.value)}>
+        <div className="searchbox grow" style={{ minWidth: 200 }}>
+          <input className="input" placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          {search && <button type="button" className="sb-clear" onClick={clearSearch} aria-label="Clear search" title="Clear">×</button>}
+        </div>
+        <select className="input" style={{ width: 170 }} value={brand} onChange={(e) => onBrand(e.target.value)}>
           <option value="">All Brands</option>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <select className="input" style={{ width: 210 }} value={category} onChange={(e) => setCategory(e.target.value)}>
+        <select className="input" style={{ width: 210 }} value={category} onChange={(e) => onCategory(e.target.value)}>
           <option value="">All Categories</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
@@ -173,6 +171,7 @@ export default function QuickBuy() {
         </table>
       </div>
 
+      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} onResult={applyImport} />}
       <div className="qb-sticky">
         <div className="container row between">
           <div><b>{count}</b> item{count !== 1 && 's'} selected · Total <b style={{ fontSize: 18 }}>{inr(total)}</b></div>

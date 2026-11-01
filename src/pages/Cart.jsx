@@ -8,7 +8,7 @@ import { Empty, Stepper, Thumb, inr, useUI } from '../components/ui'
 export default function Cart() {
   const { user } = useAuth()
   const { items, setQty, clear, total } = useCart()
-  const { toast } = useUI()
+  const { toast, confirm } = useUI()
   const nav = useNavigate()
   const [form, setForm] = useState({ name: user.name, phone: user.phone || '', address: '' })
   const [busy, setBusy] = useState(false)
@@ -29,7 +29,10 @@ export default function Cart() {
 
   return (
     <>
-      <h1 className="mb">My Cart</h1>
+      <div className="row between mb">
+        <h1>My Cart</h1>
+        <button className="btn sm danger" onClick={async () => { if (await confirm('Remove all items from your cart?', { title: 'Clear cart?', confirm: 'Yes, clear' })) { clear(); toast('Cart cleared') } }}>🗑 Clear cart</button>
+      </div>
       <div className="card flush tbl-wrap mb">
         <table className="tbl">
           <thead><tr><th>Product</th><th className="num">Price</th><th>Qty</th><th className="num">Amount</th><th /></tr></thead>

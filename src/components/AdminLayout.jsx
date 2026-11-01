@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from './nav'
 import { useAuth } from '../context/AuthContext'
 import { useCompany } from '../context/CompanyContext'
+import BrandMark from './BrandMark'
 
 // Menu items: each needs one of the permissions in "any" (company admin has all)
 export const MENU = [
@@ -12,6 +13,7 @@ export const MENU = [
   { to: '/admin/stock', label: '📈 Stock', any: ['stock.view', 'stock.manage', 'stock.history'] },
   { to: '/admin/orders', label: '🧾 Orders / Enquiries', any: ['orders.view', 'orders.manage'] },
   { to: '/admin/reports', label: '📑 Reports', any: ['reports.view'], feature: 'reports' },
+  { to: '/admin/archives', label: '🗄 Old Data', any: ['reports.view', 'orders.view'] },
   { to: '/admin/users', label: '👥 Users & Access', any: ['users.manage'] },
   { to: '/admin/settings', label: '⚙ Settings', any: ['settings.manage'] },
 ]
@@ -40,7 +42,7 @@ export default function AdminLayout() {
   return (
     <div className="admin">
       <aside className={`side${open ? ' open' : ''}`} onClick={() => setOpen(false)}>
-        <div className="brand"><span className="logo">{company.name.slice(0, 1).toUpperCase()}</span>{company.name}</div>
+        <div className="brand"><BrandMark name={company.name} logo={company.logo} icon={company.icon} size={40} />{company.name}</div>
         <div className="side-user">{user.name}<small>{user.role === 'company_admin' ? 'Company admin' : 'Staff'}</small></div>
         {menu.map((m) => <NavLink key={m.to} to={m.to} end={m.end}>{m.label}</NavLink>)}
         <hr />

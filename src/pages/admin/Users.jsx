@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api, { errMsg } from '../../api'
+import PasswordInput from '../../components/PasswordInput'
 import { Empty, Loading, Modal, fmtDate, useUI } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 
@@ -57,7 +58,7 @@ function UserForm({ u, meta, onClose, onSaved }) {
           <div className="field"><label className="f">Name *</label><input className="input" required value={f.name} onChange={set('name')} /></div>
           <div className="field"><label className="f">Email *</label><input className="input" type="email" required disabled={editing} value={f.email} onChange={set('email')} /></div>
           <div className="field"><label className="f">Phone</label><input className="input" value={f.phone} onChange={set('phone')} /></div>
-          {!editing && <div className="field"><label className="f">Password * (min 6)</label><input className="input" type="text" minLength="6" required value={f.password} onChange={set('password')} /></div>}
+          {!editing && <div className="field"><label className="f">Password * (min 6)</label><PasswordInput minLength="6" required autoComplete="new-password" value={f.password} onChange={set('password')} /></div>}
           {isCA && (
             <div className="field"><label className="f">Role</label>
               <select className="input" value={f.role} onChange={set('role')}>

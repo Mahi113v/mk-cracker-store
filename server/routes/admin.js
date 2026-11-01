@@ -7,6 +7,11 @@ const { clearCompanyCache } = require('../middleware/tenant');
 const { GROUPS, ALL, PRESETS } = require('../lib/permissions');
 const { uploader, urlPath, removeFile } = require('../middleware/upload');
 const { BASE_SELECT, attachImages, addMovement, restoreStock, getSettings, getOrderDetail } = require('../lib/helpers');
+const wa = require('../lib/whatsapp');
+const archive = require('../lib/archive');
+const { guard } = require('../lib/maintenance');
+const { sendXlsx } = require('../lib/exporter');
+const { tenantPool } = require('../config/db');
 
 router.use(auth);
 router.use('/reports', perm('reports.view'), feature('reports'), require('./reports'));
@@ -219,10 +224,14 @@ router.get('/orders', perm('orders.view', 'orders.manage'), ah(async (req, res) 
 router.get('/orders/:id', perm('orders.view', 'orders.manage'), ah(async (req, res) => {
   const o = await getOrderDetail(req.db, req.params.id);
   if (!o) throw httpErr(404, 'Order not found');
+  try {
+    const [log] = await req.db.query('SELECT id,event,status,error,created_at FROM whatsapp_log WHERE order_id=? ORDER BY id DESC LIMIT 20', [o.id]);
+    o.wa_log = log;
+  } catch { o.wa_log = []; }
   res.json(o);
 }));
 
-router.put('/orders/:id/status', perm('orders.manage'), ah(async (req, res) => {
+router.put('/orders/:id/status', perm('orders.manage'), guard, ah(async (req, res) => {
   const { status, admin_note } = req.body;
   if (!['unpaid', 'pending_verification', 'paid', 'delivered', 'cancelled'].includes(status)) throw httpErr(400, 'Invalid status');
   const conn = await req.db.getConnection();
@@ -235,7 +244,22 @@ router.put('/orders/:id/status', perm('orders.manage'), ah(async (req, res) => {
     await conn.query('UPDATE orders SET status=?,admin_note=? WHERE id=?', [status, admin_note || o.admin_note, o.id]);
     await conn.commit();
     res.json({ message: 'Order updated' });
+    if (o.status !== status) {
+      const event = { paid: 'paid', delivered: 'delivered', cancelled: 'cancelled' }[status];
+      if (event) wa.fire(req.company, req.db, o.id, event);
+    }
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+}));
+
+// Send a WhatsApp message for this order (admin button): body.event = created | pending_verification | paid | delivered | cancelled | reminder_12h | reminder_1h
+router.post('/orders/:id/whatsapp', perm('orders.manage'), ah(async (req, res) => {
+  if (!Number(req.company.whatsapp_enabled)) throw httpErr(400, 'WhatsApp messages are not enabled for this company. Ask the platform admin to enable it.');
+  const [[o]] = await req.db.query('SELECT id,status FROM orders WHERE id=?', [req.params.id]);
+  if (!o) throw httpErr(404, 'Order not found');
+  const byStatus = { unpaid: 'created', pending_verification: 'pending_verification', paid: 'paid', delivered: 'delivered', cancelled: 'cancelled' }[o.status];
+  const event = wa.EVENT_KEYS.includes(req.body.event) ? req.body.event : byStatus;
+  const r = await wa.notifyOrder(req.company, req.db, o.id, event, { force: true });
+  res.json({ status: r.status, error: r.error || null });
 }));
 
 // ---------------------------------------------------------------- USERS & ACCESS CONTROL
@@ -315,6 +339,66 @@ router.put('/design', companyAdminOnly, ah(async (req, res) => {
   await master.query('UPDATE companies SET design=?,brand_color=? WHERE id=?', [design, color, req.company.id]);
   clearCompanyCache();
   res.json({ message: 'Design updated', design, brand_color: color });
+}));
+
+// ---------------------------------------------------------------- YEAR-END ARCHIVES (old data)
+// Close the year: full copy of this company's database (kept for viewing), then the orders table is emptied.
+router.get('/archives', perm('reports.view', 'orders.view', 'settings.manage'), ah(async (req, res) => {
+  const [rows] = await master.query('SELECT id,label,orders_count,sales_total,first_order_at,last_order_at,created_by,created_at FROM year_archives WHERE company_id=? ORDER BY id DESC', [req.company.id]);
+  res.json(rows);
+}));
+
+router.get('/archives/preview', companyAdminOnly, ah(async (req, res) => {
+  res.json({ ...(await archive.preview(req.db)), db_name: req.company.db_name });
+}));
+
+router.post('/archives/close', companyAdminOnly, ah(async (req, res) => {
+  const [[me]] = await req.db.query('SELECT name,password FROM users WHERE id=?', [req.user.id]);
+  if (!(await bcrypt.compare(String(req.body.password || ''), me.password))) throw httpErr(401, 'Your password is not correct');
+  if (String(req.body.confirm || '').trim().toUpperCase() !== 'RESET') throw httpErr(400, 'Type RESET to confirm');
+  const done = await archive.closeYear({ company: req.company, userName: me.name, label: req.body.label });
+  res.status(201).json({ message: `Year ${done.label} archived and orders cleared`, ...done });
+}));
+
+const archiveOf = async (req) => {
+  const [[a]] = await master.query('SELECT * FROM year_archives WHERE id=? AND company_id=?', [req.params.aid, req.company.id]);
+  if (!a) throw httpErr(404, 'Archive not found');
+  return { a, db: tenantPool(a.db_name) };
+};
+const archPerm = perm('reports.view', 'orders.view');
+
+router.get('/archives/:aid/summary', archPerm, ah(async (req, res) => {
+  const { a, db } = await archiveOf(req);
+  const [months] = await db.query(
+    `SELECT DATE_FORMAT(created_at,'%Y-%m') AS month, COUNT(*) AS orders, COALESCE(SUM(total),0) AS sales
+     FROM orders WHERE status IN ('paid','delivered') GROUP BY month ORDER BY month`);
+  const [status] = await db.query('SELECT status,COUNT(*) AS n FROM orders GROUP BY status');
+  res.json({ archive: a, months, status: Object.fromEntries(status.map((r) => [r.status, r.n])) });
+}));
+
+router.get('/archives/:aid/orders', archPerm, ah(async (req, res) => {
+  const { a, db } = await archiveOf(req);
+  const where = [], args = [];
+  if (req.query.status) { where.push('o.status=?'); args.push(req.query.status); }
+  if (req.query.search) { where.push('(o.order_no LIKE ? OR u.name LIKE ? OR o.phone LIKE ?)'); args.push(`%${req.query.search}%`, `%${req.query.search}%`, `%${req.query.search}%`); }
+  const [rows] = await db.query(
+    `SELECT o.id,o.order_no,o.total,o.status,o.phone,o.created_at,u.name AS user_name,
+     (SELECT COUNT(*) FROM order_items WHERE order_id=o.id) AS items_count
+     FROM orders o JOIN users u ON u.id=o.user_id ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY o.id DESC LIMIT 2000`, args);
+  if (req.query.format === 'xlsx') {
+    return sendXlsx(res, `orders-${a.label}.xlsx`, `Orders ${a.label}`,
+      [{ header: 'Order', key: 'order_no' }, { header: 'Customer', key: 'user_name', width: 26 }, { header: 'Phone', key: 'phone', width: 14 },
+        { header: 'Date', key: 'created_at', width: 20 }, { header: 'Items', key: 'items_count', width: 8 }, { header: 'Total', key: 'total', numFmt: '#,##0.00' }, { header: 'Status', key: 'status', width: 20 }],
+      rows.map((r) => ({ ...r, created_at: new Date(r.created_at).toLocaleString('en-IN') })));
+  }
+  res.json(rows);
+}));
+
+router.get('/archives/:aid/orders/:id', archPerm, ah(async (req, res) => {
+  const { db } = await archiveOf(req);
+  const o = await getOrderDetail(db, req.params.id);
+  if (!o) throw httpErr(404, 'Order not found');
+  res.json(o);
 }));
 
 // ---------------------------------------------------------------- SETTINGS

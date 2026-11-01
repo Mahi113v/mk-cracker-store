@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import api, { errMsg } from '../../api'
+import FileDrop, { FileTile } from '../../components/FileDrop'
 import { Loading, Modal, Thumb, useUI } from '../../components/ui'
 
 function CatForm({ cat, onClose, onSaved }) {
   const { toast, preview, confirm } = useUI()
   const [name, setName] = useState(cat?.name || '')
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
   const [remove, setRemove] = useState(false)
   const [busy, setBusy] = useState(false)
   const save = async (e) => {
     e.preventDefault()
     const fd = new FormData()
     fd.append('name', name)
-    if (file) fd.append('image', file)
+    if (files[0]) fd.append('image', files[0])
     if (remove) fd.append('remove_image', '1')
     setBusy(true)
     try {
@@ -20,20 +21,15 @@ function CatForm({ cat, onClose, onSaved }) {
       toast('Category saved'); onSaved()
     } catch (err) { toast(errMsg(err), 'err') } finally { setBusy(false) }
   }
-  const url = file ? URL.createObjectURL(file) : !remove && cat?.image
   return (
     <Modal title={cat ? 'Edit category' : 'Add category'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" form="cform" disabled={busy}>Save</button></>}>
       <form id="cform" onSubmit={save}>
         <div className="field"><label className="f">Name *</label><input className="input" required value={name} onChange={(e) => setName(e.target.value)} /></div>
         <label className="f">Image</label>
-        <input type="file" accept="image/*" onChange={(e) => { setFile(e.target.files[0] || null); setRemove(false) }} />
-        {url && (
-          <div className="imgs-edit"><div className="ie">
-            <img className="thumb" src={url} alt="" onClick={() => preview(url)} />
-            <button type="button" className="rm" onClick={() => { setFile(null); setRemove(true) }}>×</button>
-          </div></div>
-        )}
+        <FileDrop value={files} onChange={(f) => { setFiles(f); setRemove(false) }} icon="🗂" title="Drop the category image or click to browse" hint="JPG, PNG or WEBP · up to 5 MB">
+          {cat?.image && !remove && !files.length && <FileTile src={cat.image} name="Current" tag="Current" onPreview={() => preview(cat.image)} onRemove={() => setRemove(true)} />}
+        </FileDrop>
       </form>
     </Modal>
   )

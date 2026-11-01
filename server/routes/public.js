@@ -1,13 +1,13 @@
 const router = require('express').Router();
-const { ah, httpErr } = require('../middleware/auth');
+const { ah, httpErr, optionalAuth, canDiscount, isStaffUser } = require('../middleware/auth');
 const { feature } = require('../middleware/tenant');
 const { memoryUpload } = require('../middleware/upload');
-const { BASE_SELECT, attachImages, getSettings } = require('../lib/helpers');
+const { BASE_SELECT, attachImages, getSettings, calcPrice } = require('../lib/helpers');
 const { buildExcel, buildPdf, parseQuantities } = require('../lib/pricefile');
 
 router.get('/company', (req, res) => {
-  const { name, code, design, brand_color, features } = req.company;
-  res.json({ name, code, design, brand_color, features });
+  const { name, code, design, brand_color, features, image, logo, icon, whatsapp_enabled } = req.company;
+  res.json({ name, code, design, brand_color, features, image, logo, icon, whatsapp: !!Number(whatsapp_enabled) });
 });
 
 router.get('/settings', ah(async (req, res) => {
@@ -50,10 +50,19 @@ router.get('/track/:orderNo', ah(async (req, res) => {
 }));
 
 // Price list download: ?format=xlsx | pdf
-router.get('/pricelist', feature('pricelist'), ah(async (req, res) => {
-  const products = await activeProducts(req);
+//   &lang=ta   Tamil PDF   (company admin / staff only)
+//   &discount=NN   one discount % for every product (admin with the discount permission only)
+router.get('/pricelist', feature('pricelist'), optionalAuth, ah(async (req, res) => {
+  let products = await activeProducts(req);
   const fmt = req.query.format === 'pdf' ? 'pdf' : 'xlsx';
-  const buf = fmt === 'pdf' ? await buildPdf(req.company, products) : await buildExcel(req.company, products);
+  const lang = fmt === 'pdf' && req.query.lang === 'ta' && isStaffUser(req.user) ? 'ta' : 'en';
+  const raw = req.query.discount;
+  if (raw !== undefined && raw !== '') {
+    if (!canDiscount(req.user) || !req.company.features.includes('quick_discount')) throw httpErr(403, 'Only the admin can change the discount');
+    const d = Math.min(100, Math.max(0, Number(raw) || 0));
+    products = products.map((p) => ({ ...p, discount_percent: d, price: calcPrice(p.mrp, d) }));
+  }
+  const buf = fmt === 'pdf' ? await buildPdf(req.company, products, { lang }) : await buildExcel(req.company, products);
   res.setHeader('Content-Type', fmt === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${req.company.code}-price-list.${fmt}"`);
   res.send(buf);

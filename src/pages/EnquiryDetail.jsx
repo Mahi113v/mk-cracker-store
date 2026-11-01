@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from '../components/nav'
 import api, { errMsg } from '../api'
 import PrintBill from '../components/PrintBill'
 import { useCompany } from '../context/CompanyContext'
+import FileDrop, { FileTile } from '../components/FileDrop'
 import { Loading, StatusBadge, Thumb, fmtDateTime, inr, useUI } from '../components/ui'
 
 const STEPS = ['Enquiry placed', 'Payment verified', 'Delivered']
@@ -12,30 +13,28 @@ export default function EnquiryDetail() {
   const { id } = useParams()
   const { toast, preview, confirm } = useUI()
   const [o, setO] = useState(null)
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [bill, setBill] = useState(false)
   const { has } = useCompany()
-  const inputRef = useRef()
 
   const load = () => api.get(`/api/orders/${id}`).then((r) => setO(r.data)).catch((e) => toast(errMsg(e), 'err'))
   useEffect(() => { load() }, [id])
-  const localUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
 
   if (!o) return <Loading />
   const open = o.status === 'unpaid' || o.status === 'pending_verification'
   const pay = o.payment
 
   const upload = async () => {
-    if (!file) return toast('Choose the payment screenshot first', 'err')
+    if (!files[0]) return toast('Choose the payment screenshot first', 'err')
     const fd = new FormData()
-    fd.append('screenshot', file)
+    fd.append('screenshot', files[0])
     fd.append('note', note)
     setBusy(true)
     try {
       const { data } = await api.post(`/api/orders/${id}/payment`, fd)
-      toast(data.message); setFile(null); setNote(''); if (inputRef.current) inputRef.current.value = ''
+      toast(data.message); setFiles([]); setNote('')
       load()
     } catch (e) { toast(errMsg(e), 'err') } finally { setBusy(false) }
   }
@@ -90,11 +89,11 @@ export default function EnquiryDetail() {
           </div>
 
           <h3 className="mt mb">Payment screenshot</h3>
-          <div className="row" style={{ alignItems: 'flex-start' }}>
-            {o.payment_proof && <div><Thumb images={[o.payment_proof]} w={90} h={90} /><div className="mute center">Uploaded</div></div>}
-            {localUrl && <div><img className="thumb" src={localUrl} style={{ width: 90, height: 90 }} alt="Selected" onClick={() => preview(localUrl)} /><div className="mute center">New</div></div>}
-            <div className="grow" style={{ minWidth: 220 }}>
-              <input ref={inputRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files[0] || null)} />
+          <div className="grid2">
+            <FileDrop value={files} onChange={setFiles} icon="📸" title="Drop the payment screenshot or click to browse" hint="JPG, PNG or WEBP · up to 5 MB">
+              {o.payment_proof && <FileTile src={o.payment_proof} name="Uploaded" tag="Uploaded" onPreview={() => preview(o.payment_proof)} />}
+            </FileDrop>
+            <div>
               <input className="input mt" placeholder="Transaction ID / note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
               <div className="row mt">
                 <button className="btn primary" disabled={busy} onClick={upload}>{busy ? 'Uploading…' : o.payment_proof ? 'Upload again' : 'Upload screenshot'}</button>

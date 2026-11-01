@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import api, { errMsg, tokenKey } from '../../api'
 import DesignPicker from '../../components/DesignPicker'
+import AssetPicker, { MAX_MB } from '../../components/AssetPicker'
+import PasswordInput from '../../components/PasswordInput'
 import { Empty, Loading, Modal, fmtDate, useUI } from '../../components/ui'
 import './companies.css'
 
@@ -13,8 +15,6 @@ const dbSlug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$
 const initial = (name) => (name || '?').trim().charAt(0).toUpperCase() || '?'
 
 // ---- brand images (stored as a path like /uploads/companies/xxxx.png in the companies table) ----
-const MAX_MB = 3
-const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon']
 const ASSETS = [
   { key: 'image', label: 'Cover image', hint: '1600 x 900 wide banner', shape: 'banner' },
   { key: 'logo', label: 'Logo', hint: 'Square PNG, 512 x 512', shape: 'logo' },
@@ -30,46 +30,6 @@ function useObjectUrl(file) {
     return () => URL.revokeObjectURL(u)
   }, [file])
   return url
-}
-
-function AssetPicker({ spec, src, onPick, onRemove, onError }) {
-  const inputRef = useRef(null)
-  const [over, setOver] = useState(false)
-
-  const take = (file) => {
-    if (!file) return
-    if (!ALLOWED.includes(file.type)) return onError('Only PNG, JPG, WEBP, GIF or ICO images are allowed')
-    if (file.size > MAX_MB * 1024 * 1024) return onError(`Image must be smaller than ${MAX_MB} MB`)
-    onPick(file)
-  }
-  const open = () => inputRef.current && inputRef.current.click()
-
-  return (
-    <div className={`asset asset-${spec.shape}`}>
-      <div className="asset-head"><b>{spec.label}</b><small className="mute">{spec.hint}</small></div>
-      <div
-        className={`drop${over ? ' over' : ''}${src ? ' has' : ''}`}
-        role="button" tabIndex={0} aria-label={`Upload ${spec.label}`}
-        onClick={open}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
-        onDragOver={(e) => { e.preventDefault(); setOver(true) }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files && e.dataTransfer.files[0]) }}
-      >
-        {src
-          ? <img src={src} alt={spec.label} />
-          : <div className="drop-empty"><span className="drop-plus">+</span><span>Drop or click</span></div>}
-      </div>
-      <input ref={inputRef} type="file" hidden accept={ALLOWED.join(',')}
-        onChange={(e) => { take(e.target.files && e.target.files[0]); e.target.value = '' }} />
-      {src && (
-        <div className="asset-actions">
-          <button type="button" className="btn sm" onClick={open}>Replace</button>
-          <button type="button" className="btn sm danger" onClick={onRemove}>Remove</button>
-        </div>
-      )}
-    </div>
-  )
 }
 
 function BrandPreview({ name, color, image, logo, icon }) {
@@ -97,6 +57,9 @@ function CompanyForm({ company, meta, onClose, onSaved }) {
   const [f, setF] = useState({
     name: company?.name || '', code: company?.code || '', db_name: company?.db_name || '', design: company?.design || 'normal',
     brand_color: company?.brand_color || '#e11d48', features: company?.features || meta.features, status: company?.status || 'active',
+    whatsapp_enabled: company ? !!Number(company.whatsapp_enabled) : false,
+    wa_events: company?.wa_events ? JSON.parse(company.wa_events) : meta.wa_events.map((e) => e.key),
+    payment_hold_hours: company?.payment_hold_hours ?? 24, auto_cancel_unpaid: company ? !!Number(company.auto_cancel_unpaid) : false,
     admin_name: '', admin_email: '', admin_phone: '', admin_password: '',
   })
   const [touched, setTouched] = useState({ code: false, db: false })
@@ -113,6 +76,7 @@ function CompanyForm({ company, meta, onClose, onSaved }) {
     if (!editing && !touched.db) n.db_name = dbSlug(name)
     setF(n)
   }
+  const toggleWa = (k) => setF({ ...f, wa_events: f.wa_events.includes(k) ? f.wa_events.filter((x) => x !== k) : [...f.wa_events, k] })
   const toggle = (k) => setF({ ...f, features: f.features.includes(k) ? f.features.filter((x) => x !== k) : [...f.features, k] })
 
   const srcOf = (k) => urls[k] || (!removed[k] && company && company[k]) || null
@@ -135,11 +99,11 @@ function CompanyForm({ company, meta, onClose, onSaved }) {
       let id = company && company.id
       let msg
       if (editing) {
-        await api.put(`/api/platform/companies/${company.id}`, { name: f.name, design: f.design, brand_color: f.brand_color, features: f.features, status: f.status })
+        await api.put(`/api/platform/companies/${company.id}`, { name: f.name, design: f.design, brand_color: f.brand_color, features: f.features, status: f.status, whatsapp_enabled: f.whatsapp_enabled, wa_events: f.wa_events, payment_hold_hours: f.payment_hold_hours, auto_cancel_unpaid: f.auto_cancel_unpaid })
         msg = 'Company updated'
       } else {
         const { data } = await api.post('/api/platform/companies', {
-          name: f.name, code: f.code, db_name: f.db_name, design: f.design, brand_color: f.brand_color, features: f.features,
+          name: f.name, code: f.code, db_name: f.db_name, design: f.design, brand_color: f.brand_color, features: f.features, whatsapp_enabled: f.whatsapp_enabled, wa_events: f.wa_events, payment_hold_hours: f.payment_hold_hours, auto_cancel_unpaid: f.auto_cancel_unpaid,
           admin: { name: f.admin_name, email: f.admin_email, phone: f.admin_phone, password: f.admin_password },
         })
         id = (data && (data.id || (data.company && data.company.id))) || null
@@ -200,6 +164,34 @@ function CompanyForm({ company, meta, onClose, onSaved }) {
           ))}
         </div>
 
+        <label className="f">WhatsApp messages</label>
+        <div className="card flat mb">
+          <div className="row">
+            <div className="seg">
+              <button type="button" className={!f.whatsapp_enabled ? 'on' : ''} onClick={() => setF({ ...f, whatsapp_enabled: false })}>Without WhatsApp</button>
+              <button type="button" className={f.whatsapp_enabled ? 'on' : ''} onClick={() => setF({ ...f, whatsapp_enabled: true })}>With WhatsApp</button>
+            </div>
+            <span className="mute">Server provider: <b>{meta.wa_provider.provider}</b>{meta.wa_provider.configured ? '' : ' (not configured - messages are only logged)'}</span>
+          </div>
+          {f.whatsapp_enabled && (
+            <>
+              <p className="mute">Every message is sent in Tamil and English together. Choose which messages this company sends:</p>
+              <div className="checks mb">
+                {meta.wa_events.map((e) => (
+                  <label key={e.key} className="chk"><input type="checkbox" checked={f.wa_events.includes(e.key)} onChange={() => toggleWa(e.key)} /> {e.label}</label>
+                ))}
+              </div>
+              <div className="grid2">
+                <div className="field"><label className="f">Unpaid order hold (hours)</label>
+                  <input className="input" type="number" min="0" max="720" value={f.payment_hold_hours} onChange={(e) => setF({ ...f, payment_hold_hours: e.target.value })} />
+                  <small className="mute">Reminders go 12 hours and 1 hour before this time ends. 0 = no reminders.</small></div>
+                <div className="field"><label className="f">When the hold ends</label>
+                  <label className="chk" style={{ marginTop: 8 }}><input type="checkbox" checked={f.auto_cancel_unpaid} onChange={(e) => setF({ ...f, auto_cancel_unpaid: e.target.checked })} /> Cancel unpaid order automatically and return stock</label></div>
+              </div>
+            </>
+          )}
+        </div>
+
         {editing ? (
           <div className="field"><label className="f">Status</label>
             <select className="input" value={f.status} onChange={set('status')}><option value="active">Active</option><option value="blocked">Blocked (nobody can login)</option></select></div>
@@ -210,7 +202,7 @@ function CompanyForm({ company, meta, onClose, onSaved }) {
               <div className="field"><label className="f">Admin name *</label><input className="input" required value={f.admin_name} onChange={set('admin_name')} /></div>
               <div className="field"><label className="f">Admin email *</label><input className="input" type="email" required value={f.admin_email} onChange={set('admin_email')} /></div>
               <div className="field"><label className="f">Phone</label><input className="input" value={f.admin_phone} onChange={set('admin_phone')} /></div>
-              <div className="field"><label className="f">Password * (min 6)</label><input className="input" minLength="6" required value={f.admin_password} onChange={set('admin_password')} /></div>
+              <div className="field"><label className="f">Password * (min 6)</label><PasswordInput minLength="6" required autoComplete="new-password" value={f.admin_password} onChange={set('admin_password')} /></div>
             </div>
           </>
         )}
@@ -252,22 +244,23 @@ export default function Companies() {
         <div><h1>Companies</h1><div className="mute">Every company has its own database, its own users, products, stock and orders.</div></div>
         <button className="btn primary" onClick={() => setEdit({})}>+ New company</button>
       </div>
-      <div className="card flush tbl-wrap"><table className="tbl" style={{ minWidth: 900 }}>
-        <thead><tr><th>Company</th><th>Database</th><th>Design</th><th className="num">Users</th><th className="num">Products</th><th className="num">Orders</th><th>Status</th><th>Created</th><th /></tr></thead>
+      <div className="card flush tbl-wrap"><table className="tbl" style={{ minWidth: 980 }}>
+        <thead><tr><th>Company</th><th>Database</th><th>Design</th><th>WhatsApp</th><th className="num">Users</th><th className="num">Products</th><th className="num">Orders</th><th>Status</th><th>Created</th><th /></tr></thead>
         <tbody>
-          {list.length === 0 && <tr><td colSpan="9"><Empty>No companies yet. Create the first one.</Empty></td></tr>}
+          {list.length === 0 && <tr><td colSpan="10"><Empty>No companies yet. Create the first one.</Empty></td></tr>}
           {list.map((c) => (
             <tr key={c.id}>
               <td>
                 <div className="co-cell">
-                  <span className="co-avatar" style={{ background: c.logo ? '#fff' : c.brand_color }}>
-                    {c.logo ? <img src={c.logo} alt="" /> : initial(c.name)}
+                  <span className="co-avatar" style={{ background: c.logo || c.icon ? '#fff' : c.brand_color }}>
+                    {c.logo || c.icon ? <img src={c.logo || c.icon} alt="" /> : initial(c.name)}
                   </span>
                   <div><b>{c.name}</b><div className="mute">/{c.code}</div></div>
                 </div>
               </td>
               <td><code>{c.db_name}</code></td>
               <td><span className="badge blue">{c.design}</span> <span className="swatch" style={{ background: c.brand_color }} /></td>
+              <td><span className={`badge ${Number(c.whatsapp_enabled) ? 'green' : 'grey'}`}>{Number(c.whatsapp_enabled) ? 'With' : 'Without'}</span></td>
               <td className="num">{c.counts?.users ?? '-'}</td><td className="num">{c.counts?.products ?? '-'}</td><td className="num">{c.counts?.orders ?? '-'}</td>
               <td><span className={`badge ${c.status === 'active' ? 'green' : 'red'}`}>{c.status}</span></td>
               <td className="mute">{fmtDate(c.created_at)}</td>

@@ -1,5 +1,3 @@
-use mk_master;
-
 ALTER TABLE `companies`
 ADD COLUMN `image` VARCHAR(255) NULL DEFAULT NULL AFTER `name`,
 ADD COLUMN `logo` VARCHAR(255) NULL DEFAULT NULL AFTER `image`,

@@ -8,6 +8,7 @@ import UserLayout from './components/UserLayout'
 import AdminLayout, { Can } from './components/AdminLayout'
 import PlatformLayout from './components/PlatformLayout'
 import { Loading } from './components/ui'
+import { setFavicon, setTheme } from './theme'
 import Landing from './pages/Landing'
 import Home from './pages/Home'
 import Products from './pages/Products'
@@ -19,6 +20,9 @@ import TrackOrder from './pages/TrackOrder'
 import Availability from './pages/Availability'
 import { Login, Register, AdminLogin, PlatformLogin } from './pages/Auth'
 import Companies from './pages/platform/Companies'
+import Admins from './pages/platform/Admins'
+import PlatformSettings from './pages/platform/PlatformSettings'
+import Archives from './pages/admin/Archives'
 import AdminHome from './pages/admin/AdminHome'
 import AdminProducts from './pages/admin/Products'
 import Categories from './pages/admin/Categories'
@@ -28,12 +32,6 @@ import AdminOrders from './pages/admin/Orders'
 import Users from './pages/admin/Users'
 import Reports from './pages/admin/Reports'
 import Settings from './pages/admin/Settings'
-
-const setTheme = (c) => {
-  const root = document.documentElement
-  root.dataset.theme = c?.design || 'normal'
-  if (c?.brand_color) root.style.setProperty('--red', c.brand_color); else root.style.removeProperty('--red')
-}
 
 // Loads the company (design + brand colour + features) from the company code in the URL
 function CompanyShell() {
@@ -45,8 +43,11 @@ function CompanyShell() {
 
   useEffect(() => { setSt((s) => (s.co === co ? s : { co: null, company: null, error: '' })); load() }, [co])
   useEffect(() => {
-    if (st.company) { setTheme(st.company); document.title = st.company.name }
-    return () => { setTheme(null); document.title = 'MK Crackers' }
+    if (st.company) {
+      setTheme(st.company); document.title = st.company.name
+      setFavicon(st.company.icon || st.company.logo) // company icon (or logo) = browser tab icon
+    }
+    return () => { setTheme(null); setFavicon(null); document.title = 'MK Crackers' }
   }, [st.company])
 
   if (st.co !== co) return <Loading />
@@ -78,6 +79,12 @@ function RequireStaff({ children }) {
   if (loading) return <Loading />
   return user && isStaff ? children : <Navigate to="/admin/login" replace />
 }
+// Only company admin / staff (e.g. Check Availability)
+function StaffOnly({ children }) {
+  const { loading, isStaff } = useAuth()
+  if (loading) return <Loading />
+  return isStaff ? children : <Navigate to="/" replace />
+}
 function RequirePlatform({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <Loading />
@@ -91,6 +98,8 @@ export default function App() {
       <Route path="/platform/login" element={<PlatformLogin />} />
       <Route path="/platform" element={<RequirePlatform><PlatformLayout /></RequirePlatform>}>
         <Route index element={<Companies />} />
+        <Route path="admins" element={<Admins />} />
+        <Route path="settings" element={<PlatformSettings />} />
       </Route>
 
       <Route path="/:co" element={<CompanyShell />}>
@@ -98,7 +107,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
           <Route path="quick-buy" element={<QuickBuy />} />
-          <Route path="availability" element={<Availability />} />
+          <Route path="availability" element={<StaffOnly><Availability /></StaffOnly>} />
           <Route path="track" element={<TrackOrder />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
@@ -117,6 +126,7 @@ export default function App() {
           <Route path="reports" element={<Can any={['reports.view']} feature="reports"><Reports /></Can>} />
           <Route path="users" element={<Can any={['users.manage']}><Users /></Can>} />
           <Route path="settings" element={<Can any={['settings.manage']}><Settings /></Can>} />
+          <Route path="archives" element={<Can any={['reports.view', 'orders.view']}><Archives /></Can>} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

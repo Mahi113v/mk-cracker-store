@@ -1,5 +1,6 @@
 const { master, tenantPool } = require('../config/db');
 const { ah, httpErr } = require('./auth');
+const { parseEvents } = require('../lib/whatsapp');
 
 const cache = new Map(); // code -> { at, company }
 const TTL = 20 * 1000;
@@ -7,10 +8,11 @@ const TTL = 20 * 1000;
 async function loadCompany(code) {
   const hit = cache.get(code);
   if (hit && Date.now() - hit.at < TTL) return hit.company;
-  const [rows] = await master.query('SELECT id,name,code,db_name,design,brand_color,features,status FROM companies WHERE code=?', [code]);
+  const [rows] = await master.query('SELECT id,name,code,db_name,design,brand_color,features,status,image,logo,icon,whatsapp_enabled,wa_events,payment_hold_hours,auto_cancel_unpaid FROM companies WHERE code=?', [code]);
   let company = rows[0] || null;
   if (company) {
     try { company.features = JSON.parse(company.features || '[]'); } catch { company.features = []; }
+    company.wa_events = parseEvents(company.wa_events);
   }
   cache.set(code, { at: Date.now(), company });
   return company;

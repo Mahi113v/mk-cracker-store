@@ -2,8 +2,11 @@ const router = require('express').Router();
 const { auth, canDiscount, ah, httpErr } = require('../middleware/auth');
 const { uploader, urlPath, removeFile } = require('../middleware/upload');
 const { addMovement, restoreStock, getOrderDetail, buildPayment, calcPrice } = require('../lib/helpers');
+const wa = require('../lib/whatsapp');
+const { guard } = require('../lib/maintenance');
 
 router.use(auth);
+router.use(guard); // no order changes while the company is closing its year
 const proofUpload = uploader('payments');
 
 // Place an enquiry (order). Stock is reserved immediately.
@@ -43,9 +46,11 @@ router.post('/', ah(async (req, res) => {
       total += rate * w.qty;
       lines.push({ p, qty: w.qty, disc, rate });
     }
+    // unpaid orders keep the stock reserved until hold_until (reminders + optional auto-cancel, set by the platform admin)
+    const hold = Number(req.company.payment_hold_hours) || 0;
     const [r] = await conn.query(
-      'INSERT INTO orders (order_no,user_id,total,name,phone,address) VALUES (?,?,?,?,?,?)',
-      [`TMP-${Date.now()}`, req.user.id, total, name.trim(), phone.trim(), address.trim()]);
+      `INSERT INTO orders (order_no,user_id,total,name,phone,address,hold_until) VALUES (?,?,?,?,?,?,${hold > 0 ? 'DATE_ADD(NOW(), INTERVAL ? HOUR)' : 'NULL'})`,
+      [`TMP-${Date.now()}`, req.user.id, total, name.trim(), phone.trim(), address.trim(), ...(hold > 0 ? [hold] : [])]);
     const orderNo = `O-${1000 + r.insertId}`;
     await conn.query('UPDATE orders SET order_no=? WHERE id=?', [orderNo, r.insertId]);
     for (const { p, qty, disc, rate } of lines) {
@@ -57,6 +62,7 @@ router.post('/', ah(async (req, res) => {
     }
     await conn.commit();
     res.status(201).json({ id: r.insertId, order_no: orderNo, total });
+    wa.fire(req.company, req.db, r.insertId, 'created');
   } catch (e) {
     await conn.rollback();
     throw e;
@@ -93,6 +99,7 @@ router.post('/:id/payment', proofUpload.single('screenshot'), ah(async (req, res
   await req.db.query('UPDATE orders SET payment_proof=?,payment_note=?,status=? WHERE id=?',
     [urlPath(req, 'payments', req.file), (req.body.note || '').slice(0, 250) || null, 'pending_verification', o.id]);
   res.json({ message: 'Screenshot uploaded. We will verify your payment shortly.' });
+  wa.fire(req.company, req.db, o.id, 'pending_verification');
 }));
 
 router.post('/:id/cancel', ah(async (req, res) => {
@@ -106,6 +113,7 @@ router.post('/:id/cancel', ah(async (req, res) => {
     await conn.commit();
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
   res.json({ message: 'Enquiry cancelled' });
+  wa.fire(req.company, req.db, o.id, 'cancelled');
 }));
 
 module.exports = router;

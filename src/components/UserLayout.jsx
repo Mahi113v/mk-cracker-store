@@ -1,38 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from './nav'
-import api, { downloadFile, errMsg } from '../api'
+import api from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useCompany } from '../context/CompanyContext'
-import { Swal, inr, useUI } from './ui'
+import { inr } from './ui'
+import BrandMark from './BrandMark'
+import PriceListDialog from './PriceListDialog'
 
 export default function UserLayout() {
   const { user, logout, isStaff } = useAuth()
   const { company, has } = useCompany()
   const { count, total } = useCart()
-  const { toast } = useUI()
   const nav = useNavigate()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
   const [info, setInfo] = useState({})
+  const [plOpen, setPlOpen] = useState(false)
 
   useEffect(() => { api.get('/api/settings').then((r) => setInfo(r.data)).catch(() => {}) }, [])
   useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [loc.pathname])
-
-  // Price list: ask Excel or PDF, then download
-  const priceList = async () => {
-    const r = await Swal.fire({
-      title: 'Download price list', text: 'Which format do you want?', icon: 'question',
-      showDenyButton: true, showCancelButton: true, confirmButtonText: '📗 Excel (.xlsx)', denyButtonText: '📕 PDF',
-      confirmButtonColor: '#16a34a', denyButtonColor: '#dc2626', reverseButtons: true,
-    })
-    const fmt = r.isConfirmed ? 'xlsx' : r.isDenied ? 'pdf' : null
-    if (!fmt) return
-    try {
-      await downloadFile('/api/pricelist', { format: fmt }, `${company.code}-price-list.${fmt}`)
-      toast(`Price list (${fmt === 'xlsx' ? 'Excel' : 'PDF'}) downloaded`)
-    } catch (e) { toast(errMsg(e), 'err') }
-  }
 
   const cls = ({ isActive }) => (isActive ? 'active' : '')
   const name = info.store_name || company.name
@@ -41,13 +28,13 @@ export default function UserLayout() {
       {info.announcement && <div className="announce">{info.announcement}</div>}
       <header className={`nav${open ? ' open' : ''}`}>
         <div className="container">
-          <Link to="/" className="brand"><span className="logo">{name.slice(0, 1).toUpperCase()}</span>{name}</Link>
+          <Link to="/" className="brand"><BrandMark name={name} logo={company.logo} icon={company.icon} size={40} />{name}</Link>
           <button className="burger" onClick={() => setOpen(!open)} aria-label="Menu">☰</button>
           <nav className="nav-links">
-            <NavLink to="/availability" className={cls}>Check Availability</NavLink>
+            {isStaff && <NavLink to="/availability" className={cls}>Check Availability</NavLink>}
             <NavLink to="/products" className={cls}>All Products</NavLink>
             <NavLink to="/track" className={cls}>Track Order</NavLink>
-            {has('pricelist') && <button className="lnk" onClick={priceList}>⬇ Price List</button>}
+            {has('pricelist') && <button className="lnk" onClick={() => setPlOpen(true)}>⬇ Price List</button>}
             <NavLink to="/quick-buy" className="qb">⚡ Quick Buy</NavLink>
             {user && <NavLink to="/enquiries" className={cls}>My Enquiries</NavLink>}
           </nav>
@@ -70,6 +57,7 @@ export default function UserLayout() {
       </header>
 
       <main className="container page"><Outlet /></main>
+      {plOpen && <PriceListDialog onClose={() => setPlOpen(false)} />}
 
       {count > 0 && loc.pathname !== `/${company.code}/cart` && loc.pathname !== `/${company.code}/quick-buy` && (
         <Link to="/cart" className="fab">🛒 {count}<small>{inr(total)}</small></Link>

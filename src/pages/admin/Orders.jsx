@@ -10,7 +10,7 @@ const TABS = [['', 'All'], ['pending_verification', 'Pending verification'], ['u
 function OrderModal({ id, onClose, onChanged }) {
   const { toast, confirm } = useUI()
   const { can } = useAuth()
-  const { has } = useCompany()
+  const { has, company } = useCompany()
   const canManage = can('orders.manage')
   const [o, setO] = useState(null)
   const [note, setNote] = useState('')
@@ -21,6 +21,14 @@ function OrderModal({ id, onClose, onChanged }) {
   const setStatus = async (status, confirmMsg) => {
     if (confirmMsg && !(await confirm(confirmMsg, { confirm: 'Yes', danger: status === 'cancelled' }))) return
     try { await api.put(`/api/admin/orders/${id}/status`, { status, admin_note: note }); toast('Order updated'); await load(); onChanged() } catch (e) { toast(errMsg(e), 'err') }
+  }
+  const [waEvent, setWaEvent] = useState('')
+  const resendWa = async () => {
+    try {
+      const { data } = await api.post(`/api/admin/orders/${id}/whatsapp`, { event: waEvent || undefined })
+      toast(data.status === 'sent' ? 'WhatsApp message sent' : data.status === 'skipped' ? `Not sent: ${data.error}` : `Failed: ${data.error}`, data.status === 'sent' ? 'ok' : 'warn')
+      load()
+    } catch (e) { toast(errMsg(e), 'err') }
   }
   if (!o) return <Modal title="Order" onClose={onClose}><Loading /></Modal>
   const locked = o.status === 'cancelled'
@@ -52,6 +60,34 @@ function OrderModal({ id, onClose, onChanged }) {
           </div>
         ) : <span className="mute">Customer has not uploaded a screenshot yet.</span>}
       </div>
+
+      {company.whatsapp && (
+        <div className="card mb">
+          <div className="row between"><h3>WhatsApp messages</h3>{canManage && (
+            <div className="row" style={{ flexWrap: 'nowrap' }}>
+              <select className="input" style={{ width: 210 }} value={waEvent} onChange={(e) => setWaEvent(e.target.value)}>
+                <option value="">Message for current status</option>
+                <option value="created">Order created</option>
+                <option value="pending_verification">Pending verification</option>
+                <option value="paid">Paid</option>
+                <option value="delivered">Delivered / track order</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="reminder_12h">Reminder - 12 hours</option>
+                <option value="reminder_1h">Reminder - 1 hour</option>
+              </select>
+              <button className="btn sm primary" onClick={resendWa}>📲 Send</button>
+            </div>
+          )}</div>
+          {(o.wa_log || []).length === 0 ? <div className="mute mt">No message sent yet.</div> : (
+            <div className="mt">{o.wa_log.map((w) => (
+              <div key={w.id} className="row" style={{ gap: 8 }}>
+                <span className={`badge ${w.status === 'sent' ? 'green' : w.status === 'failed' ? 'red' : 'grey'}`}>{w.status}</span>
+                <span>{w.event.replace(/_/g, ' ')}</span><span className="mute">{fmtDateTime(w.created_at)}</span>{w.error && <span className="mute">· {w.error}</span>}
+              </div>
+            ))}</div>
+          )}
+        </div>
+      )}
 
       {!canManage ? <p className="mute">You can view this order. You do not have access to change it.</p>
         : locked ? <p className="mute">This order is cancelled and cannot be changed. Stock was returned.</p> : (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api, { errMsg } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import FileDrop, { FileTile } from '../../components/FileDrop'
 import { Loading, Modal, Thumb, imgs, inr, useUI } from '../../components/ui'
 
 const EMPTY = { code: '', name: '', brand_id: '', category_id: '', pack: '', mrp: '', discount_percent: '0', stock: '0', low_stock_level: '10', description: '', is_active: '1' }
@@ -17,7 +18,6 @@ function ProductForm({ product, cats, brands, onClose, onSaved }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   const price = Math.round((Number(f.mrp) || 0) * (100 - (Number(f.discount_percent) || 0)) / 100)
 
-  const addFiles = (e) => { setFiles([...files, ...Array.from(e.target.files)].slice(0, 8)); e.target.value = '' }
   const removeExisting = async (img) => {
     if (!await confirm('Remove this image?')) return
     try { await api.delete(`/api/admin/products/${product.id}/images/${img.id}`); setExisting(existing.filter((i) => i.id !== img.id)); onSaved(false) } catch (e) { toast(errMsg(e), 'err') }
@@ -66,24 +66,14 @@ function ProductForm({ product, cats, brands, onClose, onSaved }) {
         {editing && <p className="mute" style={{ marginTop: 0 }}>To change stock use the <b>Stock</b> page so every change is recorded.</p>}
         <div className="field"><label className="f">Description</label><textarea className="input" rows="2" value={f.description} onChange={set('description')} /></div>
 
-        <label className="f">Images (max 8, JPG/PNG/WEBP, 5 MB each). Click an image to preview.</label>
-        <input type="file" accept="image/*" multiple onChange={addFiles} />
-        <div className="imgs-edit">
+        <label className="f">Images (max 8, JPG/PNG/WEBP, 5 MB each)</label>
+        <FileDrop multiple max={Math.max(0, 8 - existing.length)} value={files} onChange={setFiles} icon="🖼" title="Drop product images here or click to browse" hint={`${existing.length + files.length} / 8 images`}>
           {existing.map((img, i) => (
-            <div className="ie" key={img.id}>
-              <img className="thumb" src={img.path} alt="" onClick={() => preview(existing.map((x) => x.path), i)} />
-              <button type="button" className="rm" onClick={() => removeExisting(img)} aria-label="Remove">×</button>
-              {i === 0 ? <span className="mk main">Main</span> : <button type="button" className="mk" onClick={() => makeMain(img)}>Make main</button>}
-            </div>
+            <FileTile key={img.id} src={img.path} name="" tag={i === 0 ? 'Main' : null} onPreview={() => preview(existing.map((x) => x.path), i)} onRemove={() => removeExisting(img)}>
+              {i !== 0 && <button type="button" className="fd-mk" onClick={() => makeMain(img)}>Make main</button>}
+            </FileTile>
           ))}
-          {files.map((file, i) => (
-            <div className="ie" key={i}>
-              <img className="thumb" src={URL.createObjectURL(file)} alt="" onClick={() => preview(URL.createObjectURL(file))} />
-              <button type="button" className="rm" onClick={() => setFiles(files.filter((_, k) => k !== i))} aria-label="Remove">×</button>
-              <span className="mk">New</span>
-            </div>
-          ))}
-        </div>
+        </FileDrop>
       </form>
     </Modal>
   )

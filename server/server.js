@@ -4,6 +4,8 @@ require('./config/db'); // loads .env
 const express = require('express');
 const cors = require('cors');
 const { tenant } = require('./middleware/tenant');
+const { autoMigrate } = require('./lib/autoMigrate');
+const scheduler = require('./lib/scheduler');
 
 const app = express();
 
@@ -12,7 +14,7 @@ app.set('trust proxy', 1);
 
 // CORS: CLIENT_URL can hold one or more origins separated by commas.
 // Same-origin requests (React served by this server) are not affected.
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5000')
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:8000')
   .split(',')
   .map((s) => s.trim().replace(/\/+$/, ''))
   .filter(Boolean);
@@ -75,4 +77,10 @@ process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:
 
 // Railway provides PORT. Listen on 0.0.0.0 so the public domain can reach the app.
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`API running on port ${PORT}`));
+// Pending migrations (new tables / columns) run automatically before the server starts accepting requests
+autoMigrate()
+  .catch((e) => console.error('[migrate] FAILED:', e.message))
+  .finally(() => {
+    app.listen(PORT, '0.0.0.0', () => console.log(`API running on port ${PORT}`));
+    scheduler.start(); // unpaid reminders (12h / 1h) + optional auto-cancel
+  });

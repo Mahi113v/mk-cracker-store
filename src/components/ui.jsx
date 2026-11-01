@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
+import { EYE, EYE_OFF } from './PasswordInput'
 
 export { Swal }
 const Ctx = createContext()
@@ -47,9 +48,24 @@ const confirm = async (text, o = {}) =>
   })).isConfirmed
 
 const ask = async (title, o = {}) => {
+  const type = o.input || 'password'
   const r = await Swal.fire({
-    title, text: o.text, input: o.input || 'password', inputPlaceholder: o.placeholder || '', showCancelButton: true,
+    title, text: o.text, input: type, inputPlaceholder: o.placeholder || '', showCancelButton: true,
     confirmButtonColor: brand(), inputValidator: (v) => (!v ? 'Please enter a value' : undefined),
+    // password boxes get an eye button (hidden by default)
+    didOpen: (popup) => {
+      if (type !== 'password') return
+      const input = popup.querySelector('input.swal2-input')
+      if (!input) return
+      const wrap = document.createElement('div')
+      wrap.className = 'pw swal-pw'
+      input.parentNode.insertBefore(wrap, input)
+      wrap.appendChild(input)
+      const b = document.createElement('button')
+      b.type = 'button'; b.className = 'pw-eye'; b.tabIndex = -1; b.innerHTML = EYE
+      b.onclick = () => { const hidden = input.type === 'password'; input.type = hidden ? 'text' : 'password'; b.innerHTML = hidden ? EYE_OFF : EYE }
+      wrap.appendChild(b)
+    },
   })
   return r.isConfirmed ? r.value : null
 }

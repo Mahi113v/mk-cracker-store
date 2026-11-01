@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../components/nav'
 import api from '../api'
+import { useCompany } from '../context/CompanyContext'
 import ProductCard from '../components/ProductCard'
 import { Loading, Thumb } from '../components/ui'
 
 export default function Home() {
+  const { company } = useCompany()
   const [info, setInfo] = useState({})
   const [cats, setCats] = useState([])
   const [products, setProducts] = useState(null)
@@ -15,11 +17,13 @@ export default function Home() {
     api.get('/api/products').then((r) => setProducts(r.data))
   }, [])
 
-  const bg = info.banner_image ? { backgroundImage: `url(${info.banner_image})` } : {}
+  // Home banner: the one set in Admin > Settings, otherwise the cover image from the platform (company) record
+  const banner = info.banner_image || company.image
+  const bg = banner ? { backgroundImage: `url(${banner})` } : {}
   return (
     <>
-      <section className={`hero${info.banner_image ? ' img' : ''}`} style={bg}>
-        {!info.banner_image && (
+      <section className={`hero${banner ? ' img' : ''}`} style={bg}>
+        {!banner && (
           <div className="hero-in">
             <h1>Make your celebration unforgettable</h1>
             <p>Festival packs, bulk orders and corporate gifting at up to 75% off.</p>

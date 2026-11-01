@@ -15,9 +15,7 @@ const verify = (token) => {
   catch { throw httpErr(401, 'Session expired, please login again'); }
 };
 
-// Company user (customer / staff / company admin). Needs tenant middleware first (req.company, req.db)
-const auth = ah(async (req, res, next) => {
-  const p = verify(bearer(req));
+const loadUser = async (req, p) => {
   if (p.t !== 'u' || p.cid !== req.company.id) throw httpErr(401, 'Please login to this company');
   const [rows] = await req.db.query('SELECT id,name,email,phone,role,status,permissions FROM users WHERE id=?', [p.id]);
   const u = rows[0];
@@ -25,7 +23,21 @@ const auth = ah(async (req, res, next) => {
   if (u.status === 'blocked') throw httpErr(403, 'Your account is blocked. Contact the store.');
   u.permissions = effective(u);
   u.imp = !!p.imp;
-  req.user = u;
+  return u;
+};
+
+// Company user (customer / staff / company admin). Needs tenant middleware first (req.company, req.db)
+const auth = ah(async (req, res, next) => {
+  req.user = await loadUser(req, verify(bearer(req)));
+  next();
+});
+
+// Same as auth, but a missing / invalid login is NOT an error (req.user stays undefined)
+const optionalAuth = ah(async (req, res, next) => {
+  const t = bearer(req);
+  if (t) {
+    try { req.user = await loadUser(req, jwt.verify(t, process.env.JWT_SECRET)); } catch { /* guest */ }
+  }
   next();
 });
 
@@ -48,6 +60,7 @@ const perm = (...keys) => (req, res, next) =>
 const companyAdminOnly = (req, res, next) =>
   req.user && req.user.role === 'company_admin' ? next() : res.status(403).json({ error: 'Only the company admin can do this' });
 
-const canDiscount = (u) => u && (u.role === 'company_admin' || u.permissions.includes('discount.change'));
+const canDiscount = (u) => !!u && (u.role === 'company_admin' || (u.permissions || []).includes('discount.change'));
+const isStaffUser = (u) => !!u && (u.role === 'company_admin' || u.role === 'staff');
 
-module.exports = { auth, platformAuth, perm, companyAdminOnly, canDiscount, ah, httpErr };
+module.exports = { auth, optionalAuth, platformAuth, perm, companyAdminOnly, canDiscount, isStaffUser, ah, httpErr };
