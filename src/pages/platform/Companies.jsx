@@ -226,11 +226,20 @@ export default function Companies() {
       window.open(`/${data.code}/admin`, '_blank')
     } catch (e) { toast(errMsg(e), 'err') }
   }
+
   const resetPw = async (c) => {
-    const password = await ask(`New password for ${c.name} admin`, { placeholder: 'At least 6 characters' })
+    const password = await ask(`New password for ${c.name} admin`, {
+      placeholder: 'At least 8 characters',
+      minLength: 8,
+    })
     if (!password) return
-    try { const { data } = await api.put(`/api/platform/companies/${c.id}/admin-password`, { password }); toast(data.message) } catch (e) { toast(errMsg(e), 'err') }
+
+    try {
+      const { data } = await api.put(`/api/platform/companies/${c.id}/admin-password`, { password })
+      toast(data.message)
+    } catch (e) { toast(errMsg(e), 'err') }
   }
+  
   const toggleBlock = async (c) => {
     const block = c.status === 'active'
     if (!(await confirm(block ? `Block ${c.name}? Nobody from this company can login.` : `Activate ${c.name} again?`, { confirm: block ? 'Block' : 'Activate', danger: block }))) return

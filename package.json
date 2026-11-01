@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "concurrently -n API,WEB -c red,cyan \"nodemon server/server.js\" \"vite\"",
+    "dev": "concurrently -k false -n API,WEB -c red,cyan \"nodemon\" \"vite\"",
     "build": "vite build",
     "start": "npm run build && node server/server.js",
     "server": "node server/server.js",
@@ -14,7 +14,14 @@
     "setup": "node scripts/db.js setup",
     "db:fresh": "node scripts/db.js fresh --yes"
   },
-  "nodemonConfig": { "watch": ["server", "database"], "ext": "js,json,sql" },
+  "nodemonConfig": {
+    "watch": ["server", "database"],
+    "ext": "js,json,sql",
+    "ignore": ["server/uploads/*", "uploads/*", "node_modules"],
+    "exec": "node server/server.js",
+    "legacyWatch": true,
+    "delay": 500
+  },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11",

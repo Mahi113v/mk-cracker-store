@@ -34,8 +34,8 @@ async function seedPlatform() {
   const [ex] = await master.query('SELECT id FROM platform_users WHERE email=?', [email]);
   if (ex.length) return console.log(`  platform admin exists  -> ${email}`);
   await master.query('INSERT INTO platform_users (name,email,password) VALUES (?,?,?)',
-    [process.env.PLATFORM_NAME || 'MK Platform Admin', email, await bcrypt.hash(process.env.PLATFORM_PASSWORD || 'Super@123', 10)]);
-  console.log(`  platform admin created -> ${email} / ${process.env.PLATFORM_PASSWORD || 'Super@123'}`);
+    [process.env.PLATFORM_NAME || 'MK Platform Admin', email, await bcrypt.hash(process.env.PLATFORM_PASSWORD || 'Password123$', 10)]);
+  console.log(`  platform admin created -> ${email} / ${process.env.PLATFORM_PASSWORD || 'Password123$'}`);
 }
 
 function copySeedImage(kind, file, company, outName) {
@@ -52,7 +52,7 @@ async function seedCompany(def) {
   if (!company) {
     company = await provisionCompany({
       name: def.name, code: def.code, db_name: def.db_name, design: def.design, brand_color: def.brand_color, features: ALL_FEATURES,
-      admin: { name: `${def.name} Admin`, email: `admin@${def.domain}.com`, phone: '9000000000', password: 'Admin@123' },
+      admin: { name: `${def.name} Admin`, email: `admin@${def.domain}.com`, phone: '9000000000', password: 'password123$' },
     });
     console.log(`  company created: ${def.name}  (code: ${def.code}, database: ${def.db_name}, design: ${def.design})`);
   } else console.log(`  company exists: ${def.name}`);

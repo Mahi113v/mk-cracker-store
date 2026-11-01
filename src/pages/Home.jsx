@@ -36,12 +36,15 @@ export default function Home() {
         <section className="mt">
           <h2 className="mb">Shop by category</h2>
           <div className="cats">
-            {cats.map((c) => (
-              <div className="cat" key={c.id}>
-                {c.image ? <Thumb images={[c.image]} w={112} h={84} /> : <Link to={`/products?category=${c.id}`}><div className="thumb ph">🎆</div></Link>}
-                <Link to={`/products?category=${c.id}`}>{c.name}</Link>
-              </div>
-            ))}
+            {
+              cats.map((c) => (
+                <Link className="cat" key={c.id} to={`/products?category=${c.id}`}>
+                  {c.image ? <img className="thumb" src={c.image} alt={c.name} style={{ width: 112, height: 84 }} />
+                    : <div className="thumb ph">🎆</div>}
+                  <span>{c.name}</span>
+                </Link>
+              ))
+            }
           </div>
         </section>
       )}

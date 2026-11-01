@@ -51,20 +51,28 @@ const ask = async (title, o = {}) => {
   const type = o.input || 'password'
   const r = await Swal.fire({
     title, text: o.text, input: type, inputPlaceholder: o.placeholder || '', showCancelButton: true,
-    confirmButtonColor: brand(), inputValidator: (v) => (!v ? 'Please enter a value' : undefined),
-    // password boxes get an eye button (hidden by default)
+    confirmButtonColor: brand(),
+    inputValidator: (v) => {
+      if (!v) return 'Please enter a value'
+      if (o.minLength && v.length < o.minLength) return `Minimum ${o.minLength} characters`
+      return undefined
+    },
     didOpen: (popup) => {
       if (type !== 'password') return
       const input = popup.querySelector('input.swal2-input')
       if (!input) return
-      const wrap = document.createElement('div')
-      wrap.className = 'pw swal-pw'
-      input.parentNode.insertBefore(wrap, input)
-      wrap.appendChild(input)
+      const box = input.parentNode
+      box.style.position = 'relative'
+      input.style.paddingRight = '44px'
       const b = document.createElement('button')
-      b.type = 'button'; b.className = 'pw-eye'; b.tabIndex = -1; b.innerHTML = EYE
-      b.onclick = () => { const hidden = input.type === 'password'; input.type = hidden ? 'text' : 'password'; b.innerHTML = hidden ? EYE_OFF : EYE }
-      wrap.appendChild(b)
+      b.type = 'button'; b.className = 'swal-eye'; b.tabIndex = -1; b.innerHTML = EYE
+      b.style.top = `${input.offsetTop + input.offsetHeight / 2}px`
+      b.onclick = () => {
+        const hidden = input.type === 'password'
+        input.type = hidden ? 'text' : 'password'
+        b.innerHTML = hidden ? EYE_OFF : EYE
+      }
+      box.appendChild(b)   // sibling of the input, not a wrapper
     },
   })
   return r.isConfirmed ? r.value : null
